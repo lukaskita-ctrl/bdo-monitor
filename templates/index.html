@@ -1,1 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Monitor KPO</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        h1 { color: #2e7d32; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #2e7d32; color: white; }
+        tr:hover { background: #f5f5f5; }
+        .btn { padding: 8px 16px; border: none; cursor: pointer; border-radius: 4px; }
+        .btn-confirm { background: #4CAF50; color: white; }
+        .btn-confirm:hover { background: #45a049; }
+    </style>
+</head>
+<body>
+    <h1>Monitor KPO - Zielony Obieg</h1>
+    <p>Karty do zatwierdzenia: {{ kpos|length }}</p>
+
+<div style="margin-bottom: 20px;">
+    <a href="/stats" style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
+        📊 ZOBACZ SUMY TON I STATYSTYKI
+    </a>
+</div>    
+    
+
+    <table>
+        <tr>
+            <th>Numer karty</th>
+            <th>Data transportu</th>
+            <th>Kod odpadu</th>
+            <th>Przekazujący</th>
+            <th>Status</th>
+            <th>Akcja</th>
+        </tr>
+        {% for kpo in kpos %}
+        <tr>
+            <td>{{ kpo.cardNumber }}</td>
+            <td>{{ kpo.realTransportTime }}</td>
+            <td>{{ kpo.wasteCode }}</td>
+            <td>{{ kpo.senderName }}</td>
+            <td>{{ kpo.cardStatus }}</td>
+            <td>
+                <a href="/confirm/{{ kpo.kpoId }}" class="btn btn-confirm">Potwierdź</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
+```
+
+
 
