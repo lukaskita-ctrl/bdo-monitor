@@ -67,21 +67,29 @@ def get_kpo_details(token, kpo_id):
     url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/receiver/details/{kpo_id}"
     return _curl_get_auth(url, token)
 
-def confirm_kpo(token, kpo_id, waste_mass=None, remarks=""):
-    """Potwierdza KPO z automatycznym pobraniem masy jeśli nie podano"""
-    details = get_kpo_details(token, kpo_id)
-    if not details: return None
+def confirm_kpo(token, kpo_id, remarks=""):
+    """Potwierdza przyjęcie KPO"""
+    # Krok 1: Pobierz szczegóły karty żeby mieć wasteMass
+    details_url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/confirmationgenerated/card?KpoId={kpo_id}&CompanyType=2"
+    details = _curl_get_auth(details_url, token)
     
-    mass = waste_mass if waste_mass is not None else details.get('WasteMass')
-    wtc_id = details.get('WasteTransferCardId')
-
+    if not details or not isinstance(details, dict):
+        print(f"Nie można pobrać szczegółów karty: {details}")
+        return None
+    
+    waste_mass = details.get('wasteMass')
+    if not waste_mass:
+        print(f"Brak wasteMass w szczegółach karty")
+        return None
+    
+    # Krok 2: Potwierdź kartę z masą
     url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/assign/receiveconfirmation"
     payload = {
         "KpoId": kpo_id,
-        "WasteTransferCardId": wtc_id,
-        "CorrectedWasteMass": mass,
+        "CorrectedWasteMass": waste_mass,
         "Remarks": remarks
     }
+    
     return _curl_put_auth(url, payload, token)
 
 def get_kpo_by_date(token, date_from, date_to, year=2026):
@@ -90,13 +98,13 @@ def get_kpo_by_date(token, date_from, date_to, year=2026):
     # Krok 1: Pobierz listę kart
     url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/receiver/search"
     payload = {
-        "PaginationParameters": {"Order": {"IsAscending": False}, "Page": {"Index": 0, "Size": 200}},
-        "Year": year,
-        "SearchInCarriers": False,
-        "SearchInSenders": False,
-        "TransportDateRange": False,
-        "ReceiveConfirmationDateRange": False
-    }
+    "PaginationParameters": {"Order": {"IsAscending": False}, "Page": {"Index": 0, "Size": 200}},
+    "Year": year,
+    "SearchInCarriers": True,
+    "SearchInSenders": True,
+    "TransportDateRange": True,
+    "ReceiveConfirmationDateRange": True
+}
     
     result = _curl_post_auth(url, payload, token)
     
@@ -160,12 +168,17 @@ def get_detailed_stats(kpo_list):
 
 
 def get_kpo_list(token, year=2026):
-    """Przywrócenie starej funkcji, aby strona główna działała"""
+    """Pobiera listę KPO gdzie jesteś przejmującym"""
     url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/receiver/search"
     payload = {
-        "PaginationParameters": {"Order": {"IsAscending": False}, "Page": {"Index": 0, "Size": 50}},
+        "PaginationParameters": {
+            "Order": {"IsAscending": False},
+            "Page": {"Index": 0, "Size": 50}
+        },
         "Year": year,
-        "SearchInCarriers": False,
-        "SearchInSenders": False
+        "SearchInCarriers": True,
+        "SearchInSenders": True,
+        "TransportDateRange": True,
+        "ReceiveConfirmationDateRange": True
     }
     return _curl_post_auth(url, payload, token)
