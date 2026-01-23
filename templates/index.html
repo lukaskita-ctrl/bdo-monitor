@@ -3,14 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BDO Monitor</title>
+    <title>BDO Monitor - Zielony Obieg</title>
     
     <!-- Ikona dla iPhone -->
     <link rel="apple-touch-icon" href="/static/icon.png">
     <link rel="icon" href="/static/icon.png">
-    <title>Monitor KPO</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
     <style>
         body { font-family: Arial; padding: 20px; }
         h1 { color: #2e7d32; }
@@ -18,22 +16,20 @@
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background: #2e7d32; color: white; }
         tr:hover { background: #f5f5f5; }
-        .btn { padding: 8px 16px; border: none; cursor: pointer; border-radius: 4px; }
+        .btn { padding: 8px 16px; border: none; cursor: pointer; border-radius: 4px; text-decoration: none; }
         .btn-confirm { background: #4CAF50; color: white; }
         .btn-confirm:hover { background: #45a049; }
+        .btn-stats { padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; }
     </style>
 </head>
 <body>
     <h1>Monitor KPO - Zielony Obieg</h1>
     <p>Karty do zatwierdzenia: {{ kpos|length }}</p>
-
-<div style="margin-bottom: 20px;">
-    <a href="/stats" style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
-        📊 ZOBACZ SUMY TON I STATYSTYKI
-    </a>
-</div>    
     
-
+    <div style="margin-bottom: 20px;">
+        <a href="/stats" class="btn-stats">📊 ZOBACZ SUMY TON I STATYSTYKI</a>
+    </div>    
+    
     <table>
         <tr>
             <th>Numer karty</th>
@@ -58,7 +54,5 @@
     </table>
 </body>
 </html>
-```
-
 
 
