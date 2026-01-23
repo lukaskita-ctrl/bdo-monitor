@@ -2,7 +2,6 @@
 import subprocess
 import json
 import config
-import time
 
 # --- FUNKCJE POMOCNICZE (KOMUNIKACJA) ---
 
@@ -26,17 +25,12 @@ def _curl_post_auth(url, payload, token):
     return json.loads(result.stdout) if result.stdout else None
 
 def _curl_get_auth(url, token):
-    """Wersja pancerna dla Windows - radzi sobie ze znakami & w adresie"""
-    # Budujemy pełną komendę jako jeden tekst
     command = f'curl -s -g -X GET "{url}" -H "accept: application/json" -H "Authorization: Bearer {token}"'
-    
     result = subprocess.run(command, capture_output=True, encoding='utf-8', errors='ignore', shell=True)
-    
     if result.stdout:
         try:
             return json.loads(result.stdout)
-        except Exception as e:
-            print(f"BDO zwróciło tekst zamiast danych: {result.stdout[:100]}")
+        except:
             return None
     return None
 
@@ -50,7 +44,7 @@ def _curl_put_auth(url, payload, token):
     ], capture_output=True, encoding='utf-8', errors='ignore')
     return json.loads(result.stdout) if result.stdout else None
 
-# --- LOGOWANIE I TOKENY ---
+# --- LOGOWANIE ---
 
 def get_token():
     url = f"{config.API_URL}/WasteRegister/v1/Auth/generateEupAccessToken"
@@ -62,10 +56,21 @@ def get_token():
 
 # --- OPERACJE NA KPO ---
 
-def get_kpo_details(token, kpo_id):
-    """Pobiera pełne dane karty (masa, WtcId)"""
-    url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/receiver/details/{kpo_id}"
-    return _curl_get_auth(url, token)
+def get_kpo_list(token, year=2026):
+    """Pobiera listę KPO gdzie jesteś przejmującym"""
+    url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/receiver/search"
+    payload = {
+        "PaginationParameters": {
+            "Order": {"IsAscending": False},
+            "Page": {"Index": 0, "Size": 50}
+        },
+        "Year": year,
+        "SearchInCarriers": True,
+        "SearchInSenders": True,
+        "TransportDateRange": True,
+        "ReceiveConfirmationDateRange": True
+    }
+    return _curl_post_auth(url, payload, token)
 
 def confirm_kpo(token, kpo_id, remarks=""):
     """Potwierdza przyjęcie KPO"""
@@ -95,44 +100,38 @@ def confirm_kpo(token, kpo_id, remarks=""):
 def get_kpo_by_date(token, date_from, date_to, year=2026):
     """Pobiera karty potwierdzone z danego zakresu dat wraz z masami"""
     
-    # Krok 1: Pobierz listę kart
     url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/receiver/search"
     payload = {
-    "PaginationParameters": {"Order": {"IsAscending": False}, "Page": {"Index": 0, "Size": 200}},
-    "Year": year,
-    "SearchInCarriers": True,
-    "SearchInSenders": True,
-    "TransportDateRange": True,
-    "ReceiveConfirmationDateRange": True
-}
+        "PaginationParameters": {"Order": {"IsAscending": False}, "Page": {"Index": 0, "Size": 200}},
+        "Year": year,
+        "SearchInCarriers": True,
+        "SearchInSenders": True,
+        "TransportDateRange": True,
+        "ReceiveConfirmationDateRange": True
+    }
     
     result = _curl_post_auth(url, payload, token)
     
     if not result or "items" not in result:
         return {"items": []}
     
-    # Krok 2: Filtruj potwierdzone karty (OBA statusy!)
     karty_ze_szczegolami = []
     
     for kpo in result["items"]:
         status = kpo.get("cardStatusCodeName")
         
-        # Akceptuj oba statusy
         if status not in ["RECEIVE_CONFIRMATION", "TRANSPORT_CONFIRMATION"]:
             continue
         
-        # Sprawdź datę potwierdzenia
         conf_time = kpo.get("receiveConfirmationTime", "")
         if conf_time:
-            conf_date = conf_time[:10]  # Wyciągnij YYYY-MM-DD
+            conf_date = conf_time[:10]
             if date_from <= conf_date <= date_to:
-                # Pobierz szczegóły z masą
                 kpo_id = kpo.get("kpoId")
                 
-                # Wybierz endpoint w zależności od statusu
                 if status == "RECEIVE_CONFIRMATION":
                     details_url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/receiveconfirmed/card?KpoId={kpo_id}&CompanyType=2"
-                else:  # TRANSPORT_CONFIRMATION
+                else:
                     details_url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/transportconfirmation/card?KpoId={kpo_id}&CompanyType=2"
                 
                 details = _curl_get_auth(details_url, token)
@@ -166,19 +165,3 @@ def get_detailed_stats(kpo_list):
         stats[sender]['count'] += 1
     return stats
 
-
-def get_kpo_list(token, year=2026):
-    """Pobiera listę KPO gdzie jesteś przejmującym"""
-    url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/receiver/search"
-    payload = {
-        "PaginationParameters": {
-            "Order": {"IsAscending": False},
-            "Page": {"Index": 0, "Size": 50}
-        },
-        "Year": year,
-        "SearchInCarriers": True,
-        "SearchInSenders": True,
-        "TransportDateRange": True,
-        "ReceiveConfirmationDateRange": True
-    }
-    return _curl_post_auth(url, payload, token)
