@@ -25,8 +25,11 @@ def _curl_post_auth(url, payload, token):
     return json.loads(result.stdout) if result.stdout else None
 
 def _curl_get_auth(url, token):
-    command = f'curl -s -g -X GET "{url}" -H "accept: application/json" -H "Authorization: Bearer {token}"'
-    result = subprocess.run(command, capture_output=True, encoding='utf-8', errors='ignore', shell=True)
+    result = subprocess.run([
+        'curl', '-s', '-g', '-X', 'GET', url,
+        '-H', 'accept: application/json',
+        '-H', f'Authorization: Bearer {token}'
+    ], capture_output=True, encoding='utf-8', errors='ignore')
     if result.stdout:
         try:
             return json.loads(result.stdout)

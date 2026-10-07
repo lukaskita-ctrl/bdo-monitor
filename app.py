@@ -1,8 +1,40 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, Response, abort
 import auth
+import hmac
+import os
+import re
 from datetime import datetime
 
 app = Flask(__name__)
+
+# --- Logowanie do aplikacji (HTTP Basic) ---
+# Login i haslo ustawiane w zmiennych srodowiskowych APP_USER i APP_PASSWORD
+# (na Renderze: Environment -> Environment Variables). Bez nich aplikacja
+# jest zablokowana dla wszystkich, zeby nigdy nie dzialala bez hasla.
+APP_USER = os.environ.get('APP_USER')
+APP_PASSWORD = os.environ.get('APP_PASSWORD')
+
+# Identyfikator karty KPO: tylko litery, cyfry i myslniki (format GUID)
+KPO_ID_RE = re.compile(r'^[A-Za-z0-9-]{1,64}$')
+
+
+@app.before_request
+def wymagaj_logowania():
+    if not APP_USER or not APP_PASSWORD:
+        return Response(
+            'Aplikacja zablokowana: brak ustawionych APP_USER i APP_PASSWORD.',
+            503, {'Content-Type': 'text/plain; charset=utf-8'})
+    dane = request.authorization
+    ok = (
+        dane is not None
+        and hmac.compare_digest((dane.username or '').encode(), APP_USER.encode())
+        and hmac.compare_digest((dane.password or '').encode(), APP_PASSWORD.encode())
+    )
+    if not ok:
+        return Response(
+            'Wymagane logowanie.', 401,
+            {'WWW-Authenticate': 'Basic realm="BDO Monitor", charset="UTF-8"',
+             'Content-Type': 'text/plain; charset=utf-8'})
 
 @app.route('/')
 def index():
@@ -50,6 +82,8 @@ def stats_page():
 @app.route('/confirm/<kpo_id>')
 def confirm_kpo_route(kpo_id):
     """Logika potwierdzania pojedynczej karty"""
+    if not KPO_ID_RE.match(kpo_id):
+        abort(400)
     token = auth.get_token()
     if token:
         result = auth.confirm_kpo(token, kpo_id)
