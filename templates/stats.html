@@ -34,7 +34,14 @@
             </tfoot>
         </table>
     </div>
-{% else %}
+{% endif %}
+{% if not blad and (bez_daty or bez_szczegolow) %}
+    <div class="komunikat komunikat-error" style="margin-top:16px">
+        {% if bez_daty %}{{ bez_daty }} {{ bez_daty|karty }} bez daty potwierdzenia przyjęcia w BDO – nie wliczone do sum. {% endif %}
+        {% if bez_szczegolow %}Dla {{ bez_szczegolow }} {{ 'karty' if bez_szczegolow == 1 else 'kart' }} BDO nie zwróciło szczegółów – masa może być zaniżona. Odśwież za chwilę.{% endif %}
+    </div>
+{% endif %}
+{% if not blad and not stats %}
     <div class="pusto"><p>W tym okresie nie ma potwierdzonych kart. Zmień daty i kliknij „Pokaż za ten okres”.</p></div>
 {% endif %}
 {% endblock %}

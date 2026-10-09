@@ -51,14 +51,12 @@ Właściciel produktu: Łukasz. Nie jest programistą — czyta Pythona, ale dec
 Krytyczne:
 - `auth.py`: zapytania nadal przez `curl` w `subprocess` (bez `shell=True` od PR #1); token widoczny w argumentach procesu → docelowo `requests`.
 - Logowanie HTTP Basic (`APP_USER`/`APP_PASSWORD`) działa od PR #1 — docelowo można zamienić na formularz logowania z sesją.
-- Brak paginacji: lista 50 kart, statystyki 200 → statystyki po cichu zaniżone.
 - `monitor.py`: karta dodawana do `known_kpos` przed wysłaniem maila, wynik wysyłki ignorowany; stan tylko w pamięci (ginie po restarcie).
-- Rok `2026` wpisany na sztywno w `get_kpo_list` i `get_kpo_by_date`.
 
 Funkcjonalność i dług:
 - Nowy token przy każdym żądaniu, statystyki robią 1 + N wywołań sekwencyjnie → wolno, ryzyko timeoutu.
 - Brak timeoutów na wywołaniach sieciowych i SMTP.
-- Filtr dat robiony lokalnie po `receiveConfirmationTime`; karty o statusie `TRANSPORT_CONFIRMATION` mieszają się w statystykach. (Łukasz zgłaszał też, że karty „znikają ze statystyk” po potwierdzeniu — prawdopodobnie ten sam problem ze statusami/paginacją.)
+- Statystyki (PR #5): karty `RECEIVE_CONFIRMATION` i `TRANSPORT_CONFIRMATION`; data potwierdzenia przyjęcia z listy, a gdy jej brak (typowe po potwierdzeniu transportu) — ze szczegółów karty. Masa: `correctedWasteMass`, potem `wasteMass`. Karty bez daty / bez szczegółów są liczone i pokazywane jako uwaga. Szczegóły pobierane równolegle (6 wątków). Test: `python tests/test_statystyki.py`.
 - Wygląd (PR #4): wspólny szablon `templates/base.html` + `static/style.css` (bez Bootstrapa), karty jako bloki pod telefon, filtry Jinja `data_pl`, `mg`, `karty` w `app.py`.
 - Cztery prawie identyczne funkcje `_curl_*`, gołe `except:`.
 - `requests` w requirements, ale nieużywany; brak przypiętych wersji i `gunicorn`.
@@ -80,9 +78,9 @@ Funkcjonalność i dług:
 - [x] Potwierdzanie i odrzucanie (z powodem) przez POST + CSRF + okno potwierdzenia + komunikat o wyniku (PR #3). `confirm_kpo` zwraca `{"ok", "komunikat"}` i sprawdza kod HTTP odpowiedzi BDO.
 
 ### Etap 2 — kompletne i poprawne dane
-- [ ] Paginacja we wszystkich zapytaniach.
-- [ ] Rok wyliczany z zakresu dat (także zakres przez dwa lata).
-- [ ] Jasna logika statusów kart w statystykach.
+- [x] Paginacja we wszystkich zapytaniach (PR #5, strony po 200, ochrona przed zapętleniem).
+- [x] Rok wyliczany z zakresu dat; w styczniu także poprzedni rok (PR #5).
+- [x] Jasna logika statusów kart w statystykach (PR #5) — naprawia „znikające karty” po potwierdzeniu transportu.
 - [ ] Odporność na brakujące pola.
 
 ### Etap 3 — monitor
