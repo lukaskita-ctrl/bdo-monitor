@@ -1,7 +1,7 @@
 # auth.py - moduł autoryzacji i logiki BDO
 import subprocess
 import json
-import config
+import ustawienia as config
 
 # --- FUNKCJE POMOCNICZE (KOMUNIKACJA) ---
 
