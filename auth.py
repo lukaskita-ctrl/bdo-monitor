@@ -47,6 +47,24 @@ def _curl_put_auth(url, payload, token):
     ], capture_output=True, encoding='utf-8', errors='ignore')
     return json.loads(result.stdout) if result.stdout else None
 
+def _curl_put_auth_status(url, payload, token):
+    """PUT, ktory zwraca (kod_HTTP, tresc_odpowiedzi) - potrzebne, bo BDO
+    przy udanym potwierdzeniu odsyla zwykle pusta odpowiedz."""
+    result = subprocess.run([
+        'curl', '-s', '-X', 'PUT', url,
+        '--max-time', '60',
+        '-w', '\n%{http_code}',
+        '-H', 'accept: application/json',
+        '-H', f'Authorization: Bearer {token}',
+        '-H', 'Content-Type: application/json',
+        '-d', json.dumps(payload)
+    ], capture_output=True, encoding='utf-8', errors='ignore')
+    tekst, _, kod = (result.stdout or '').rpartition('\n')
+    try:
+        return int(kod), tekst
+    except ValueError:
+        return 0, result.stdout or ''
+
 # --- LOGOWANIE ---
 
 def get_token():
@@ -76,19 +94,20 @@ def get_kpo_list(token, year=2026):
     return _curl_post_auth(url, payload, token)
 
 def confirm_kpo(token, kpo_id, remarks=""):
-    """Potwierdza przyjęcie KPO"""
+    """Potwierdza przyjęcie KPO.
+    Zwraca slownik {"ok": bool, "komunikat": str} z informacja dla uzytkownika."""
     # Krok 1: Pobierz szczegóły karty żeby mieć wasteMass
     details_url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/confirmationgenerated/card?KpoId={kpo_id}&CompanyType=2"
     details = _curl_get_auth(details_url, token)
     
     if not details or not isinstance(details, dict):
         print(f"Nie można pobrać szczegółów karty: {details}")
-        return None
+        return {"ok": False, "komunikat": "Nie udało się pobrać szczegółów karty z BDO. Karta NIE została potwierdzona."}
     
     waste_mass = details.get('wasteMass')
     if not waste_mass:
         print(f"Brak wasteMass w szczegółach karty")
-        return None
+        return {"ok": False, "komunikat": "Karta nie ma podanej masy odpadu. Nie potwierdzono - sprawdź ją w BDO."}
     
     # Krok 2: Potwierdź kartę z masą
     url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/assign/receiveconfirmation"
@@ -98,7 +117,21 @@ def confirm_kpo(token, kpo_id, remarks=""):
         "Remarks": remarks
     }
     
-    return _curl_put_auth(url, payload, token)
+    kod, tekst = _curl_put_auth_status(url, payload, token)
+    if 200 <= kod < 300:
+        return {"ok": True, "komunikat": f"Karta potwierdzona w BDO (masa: {waste_mass} Mg)."}
+    print(f"BDO odrzuciło potwierdzenie: kod {kod}, odpowiedź: {tekst[:500]}")
+    szczegoly = ""
+    try:
+        dane = json.loads(tekst)
+        if isinstance(dane, dict):
+            szczegoly = dane.get("message") or dane.get("Message") or dane.get("title") or ""
+    except (ValueError, TypeError):
+        pass
+    komunikat = f"BDO odrzuciło potwierdzenie (kod {kod or 'brak połączenia'})."
+    if szczegoly:
+        komunikat += " " + str(szczegoly)[:200].rstrip(" .") + "."
+    return {"ok": False, "komunikat": komunikat + " Karta NIE została potwierdzona."}
 
 def get_kpo_by_date(token, date_from, date_to, year=2026):
     """Pobiera karty potwierdzone z danego zakresu dat wraz z masami"""
