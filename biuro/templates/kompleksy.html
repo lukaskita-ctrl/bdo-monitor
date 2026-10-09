@@ -1,9 +1,9 @@
 {% extends "base_biuro.html" %}
-{% block tytul %}Kompleksy{% endblock %}
+{% block tytul %}Działki i kompleksy{% endblock %}
 {% block tresc %}
-<h1>Kompleksy według oczyszczalni</h1>
+<h1>Działki i kompleksy według oczyszczalni</h1>
 {% if grupy %}
-<p class="okres">Limit {{ limit|pl }} Mg s.m./ha w ostatnich 3 latach, liczony dla całego kompleksu. Kompleks wspólny dla kilku oczyszczalni ma jeden limit – widać go w każdej z nich.</p>
+<p class="okres">Każda pozycja to jedna próbka gleby i jeden limit {{ limit|pl }} Mg s.m./ha w ostatnich 3 latach: pojedyncza działka albo kompleks sąsiadujących działek badanych jedną próbką. Pozycja wspólna dla kilku oczyszczalni ma jeden limit – widać ją w każdej z nich.</p>
 <form method="get" class="formularz" style="margin-bottom:6px">
     <label>Przelicz wolne miejsce na tony osadu przy suchej masie [%] <input name="sm" inputmode="decimal" value="{{ sm|pl if sm else '' }}" placeholder="np. 19"></label>
     <button class="przycisk" type="submit">Przelicz</button>
@@ -12,19 +12,19 @@
 <section class="grupa">
     <div class="grupa-naglowek">
         <h2>{% if g.oczyszczalnia %}{{ g.oczyszczalnia.nazwa }}{% else %}Bez przypisanej oczyszczalni{% endif %}</h2>
-        <span class="okres" style="margin:0">{{ g.kompleksy|length }} {{ 'kompleks' if g.kompleksy|length == 1 else 'kompleksy' if g.kompleksy|length in (2,3,4) else 'kompleksów' }}, {{ g.ha|pl }} ha, wolne {{ g.wolne_sm_mg|pl }} Mg s.m.{% if sm %} ≈ {{ ile(g.wolne_sm_mg, sm)|pl(0) }} Mg osadu przy {{ sm|pl }}%{% endif %}</span>
+        <span class="okres" style="margin:0">{{ g.kompleksy|length }} {{ 'pozycja' if g.kompleksy|length == 1 else 'pozycje' if g.kompleksy|length in (2,3,4) else 'pozycji' }}, {{ g.ha|pl }} ha, wolne {{ g.wolne_sm_mg|pl }} Mg s.m.{% if sm %} ≈ {{ ile(g.wolne_sm_mg, sm)|pl(0) }} Mg osadu przy {{ sm|pl }}%{% endif %}</span>
     </div>
     {% if g.kompleksy %}
     <div class="tabela-ramka"><table>
         <thead><tr>
-            <th>Kompleks</th><th>Działki</th><th class="num">ha</th><th>Badanie gleby</th>
+            <th>Działka / kompleks</th><th>Numery działek</th><th class="num">ha</th><th>Badanie gleby</th>
             <th class="num">Wykorzystano</th><th>Limit</th><th class="num">Zostało</th>
         </tr></thead>
         <tbody>
         {% for s in g.kompleksy %}
             {% set k = s.kompleks %}
             <tr>
-                <td><a href="{{ url_for('kompleks', kid=k.id) }}">{{ k.nazwa }}</a>{% if k.gmina %}<br><span class="okres" style="margin:0">gm. {{ k.gmina }}</span>{% endif %}
+                <td><a href="{{ url_for('kompleks', kid=k.id) }}">{{ k.nazwa }}</a><br><span class="okres" style="margin:0">{% if s.dzialki|length > 1 %}kompleks {{ s.dzialki|length }} działek{% else %}działka{% endif %}</span>
                     {% if g.wspolne_z.get(k.id) %}<br><span class="wspolny">wspólny z: {{ g.wspolne_z[k.id]|join(', ') }}</span>{% endif %}</td>
                 <td>{{ s.dzialki|join(', ') }}</td>
                 <td class="num liczby">{{ k.powierzchnia_ha|pl }}</td>
@@ -40,13 +40,13 @@
         </tbody>
     </table></div>
     {% else %}
-    <p class="okres">Brak przypisanych kompleksów. Przypisz je na stronie kompleksu.</p>
+    <p class="okres">Brak przypisanych działek. Przypisz je na stronie działki lub kompleksu.</p>
     {% endif %}
 </section>
 {% endfor %}
 {% else %}
 <div class="pusto">
-    <p>Nie ma jeszcze żadnego kompleksu ani oczyszczalni. Zacznij od dodania oczyszczalni, potem kompleksów.</p>
+    <p>Nie ma jeszcze żadnych działek ani oczyszczalni. Zacznij od dodania oczyszczalni, potem działek.</p>
     <a class="przycisk przycisk-drugi" href="{{ url_for('oczyszczalnie') }}">Dodaj oczyszczalnię</a>
 </div>
 {% endif %}

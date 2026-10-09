@@ -3,7 +3,7 @@
 {% block tytul %}{{ k.nazwa }}{% endblock %}
 {% block tresc %}
 <h1>{{ k.nazwa }}</h1>
-<p class="okres">{{ k.obreb or '' }}{% if k.gmina %}, gm. {{ k.gmina }}{% endif %} – działki {{ s.dzialki|join(', ') }}, {{ k.kategoria_gruntu or 'kategoria gruntu nieznana' }}</p>
+<p class="okres">{% if s.dzialki|length > 1 %}Kompleks {{ s.dzialki|length }} sąsiadujących działek ({{ s.dzialki|join(', ') }}) – jedna próbka gleby{% else %}Działka {{ s.dzialki|join(', ') }}{% endif %}, {{ k.obreb or '' }}{% if k.gmina %}, gm. {{ k.gmina }}{% endif %}, {{ k.kategoria_gruntu or 'kategoria gruntu nieznana' }}</p>
 
 {% if s.przekroczony %}<div class="komunikat komunikat-error">Limit {{ limit|pl }} Mg s.m./ha w ostatnich 3 latach jest przekroczony.</div>{% endif %}
 {% for u in s.uwagi_gleby %}<div class="komunikat komunikat-error" style="border-color:#c98a00;background:#fff6e0;color:#5c4100">{{ u }}</div>{% endfor %}
@@ -11,7 +11,7 @@
 <form method="post" action="{{ url_for('zmien_przypisania', kid=k.id) }}" class="formularz" style="margin-bottom:12px">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <fieldset class="szeroko" style="border:0;padding:0;margin:0">
-        <legend style="font-weight:600;font-size:14px;margin-bottom:6px">Oczyszczalnie przypisane do kompleksu</legend>
+        <legend style="font-weight:600;font-size:14px;margin-bottom:6px">Oczyszczalnie, z których osad trafia tutaj</legend>
         {% if wszystkie %}<div class="wybor">{% for o in wszystkie %}<label><input type="checkbox" name="oczyszczalnie" value="{{ o.id }}" {% if o.id in przypisane_ids %}checked{% endif %}> {{ o.nazwa }}</label>{% endfor %}</div>
         {% else %}<p class="okres" style="margin:0">Brak oczyszczalni – dodaj je w zakładce „Oczyszczalnie”.</p>{% endif %}
     </fieldset>
@@ -19,7 +19,7 @@
 </form>
 
 <div class="siatka">
-    <div class="kafel"><div class="wartosc liczby">{{ k.powierzchnia_ha|pl }} ha</div><div class="opis">powierzchnia kompleksu</div></div>
+    <div class="kafel"><div class="wartosc liczby">{{ k.powierzchnia_ha|pl }} ha</div><div class="opis">powierzchnia (jedna próbka gleby)</div></div>
     <div class="kafel"><div class="wartosc liczby">{{ s.dawka_sm_ha|pl }}</div><div class="opis">Mg s.m./ha od {{ s.okres_od|data_pl }} (limit {{ limit|pl }})</div></div>
     <div class="kafel"><div class="wartosc liczby">{{ s.pozostalo_sm_mg|pl }}</div><div class="opis">Mg s.m. można jeszcze dać ({{ s.pozostalo_sm_ha|pl }} Mg s.m./ha)</div></div>
     <div class="kafel"><div class="wartosc liczby">{{ s.suma_mokra_mg|pl }}</div><div class="opis">Mg osadu w {{ s.dostaw_w_okresie }} dostawach (3 lata)</div></div>

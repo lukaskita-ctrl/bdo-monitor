@@ -104,7 +104,7 @@ assert "Formularz wygasł" in r
 r = c.post("/kompleks/nowy", data={"csrf_token": tok, "nazwa": "Nowy", "dzialki": "5, 6/2",
                                    "powierzchnia_ha": "2,5", "kategoria_gruntu": "grunt lekki"},
            follow_redirects=True).get_data(as_text=True)
-assert "Dodano kompleks" in r
+assert "Dodano „Nowy”" in r
 h = c.get("/").get_data(as_text=True)
 assert "Raszyn" in h and "wspólny z: Fałków, Orońsko" in h and "Bez przypisanej oczyszczalni" in h
 h = c.get("/?sm=20").get_data(as_text=True)

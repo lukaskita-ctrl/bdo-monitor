@@ -48,9 +48,9 @@
                 <span>Biuro, Zielony Obieg (lokalnie)</span>
             </div>
             <nav class="zakladki" aria-label="Sekcje">
-                <a href="{{ url_for('kompleksy') }}" {% if request.endpoint in ('kompleksy', 'kompleks') %}aria-current="page"{% endif %}>Kompleksy</a>
+                <a href="{{ url_for('kompleksy') }}" {% if request.endpoint in ('kompleksy', 'kompleks') %}aria-current="page"{% endif %}>Działki i kompleksy</a>
                 <a href="{{ url_for('oczyszczalnie') }}" {% if request.endpoint == 'oczyszczalnie' %}aria-current="page"{% endif %}>Oczyszczalnie</a>
-                <a href="{{ url_for('nowy_kompleks') }}" {% if request.endpoint == 'nowy_kompleks' %}aria-current="page"{% endif %}>Dodaj kompleks</a>
+                <a href="{{ url_for('nowy_kompleks') }}" {% if request.endpoint == 'nowy_kompleks' %}aria-current="page"{% endif %}>Dodaj</a>
             </nav>
         </div>
     </header>

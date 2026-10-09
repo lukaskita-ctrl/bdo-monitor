@@ -199,7 +199,7 @@ def nowy_kompleks():
         try:
             nazwa = (request.form.get("nazwa") or "").strip()
             if not nazwa:
-                raise ValueError("Podaj nazwę kompleksu.")
+                raise ValueError("Podaj nazwę roboczą.")
             dzialki = [d for d in re.split(r"[,;\s]+", request.form.get("dzialki", "")) if d]
             if not dzialki:
                 raise ValueError("Podaj co najmniej jeden numer działki.")
@@ -210,7 +210,7 @@ def nowy_kompleks():
                 wlasciciel=request.form.get("wlasciciel"), uwagi=request.form.get("uwagi") or None,
                 oczyszczalnie_ids=request.form.getlist("oczyszczalnie"))
             db().commit()
-            flash(f"Dodano kompleks „{nazwa}”.", "ok")
+            flash(f"Dodano „{nazwa}”.", "ok")
             return redirect(url_for("kompleks", kid=kid))
         except ValueError as e:
             flash(str(e), "error")
@@ -228,7 +228,7 @@ def dodaj_dostawe(kid):
         db().commit()
         stan = baza.stan_kompleksu(db(), kid)
         if stan["przekroczony"]:
-            flash("Dostawa zapisana, ale LIMIT KOMPLEKSU JEST PRZEKROCZONY. Sprawdź wpisy.", "error")
+            flash("Dostawa zapisana, ale LIMIT JEST PRZEKROCZONY. Sprawdź wpisy.", "error")
         else:
             flash(f"Dostawa zapisana. Zostało {pl(stan['pozostalo_sm_ha'])} Mg s.m./ha.", "ok")
     except ValueError as e:
