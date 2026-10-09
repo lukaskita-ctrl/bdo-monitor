@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block tytul %}Diagnostyka statystyk{% endblock %}
+{% block tresc %}
+    <h1>Diagnostyka statystyk</h1>
+    <p class="okres">Tylko odczyt z BDO, nic nie jest potwierdzane ani zmieniane. Strona pokazuje same liczby, bez nazw firm, żeby można było ją wysłać jako zrzut ekranu.</p>
+    <form method="get" class="filtr">
+        <label>Od dnia <input type="date" name="od" value="{{ date_from }}" required></label>
+        <label>Do dnia <input type="date" name="do" value="{{ date_to }}" required></label>
+        <button type="submit" class="przycisk">Sprawdź ten okres</button>
+    </form>
+{% if blad %}
+    <div class="komunikat komunikat-error">{{ blad }}</div>
+{% elif d %}
+    <div class="tabela-ramka"><table>
+        <tr><th>Co</th><th class="num">Ile</th></tr>
+        <tr><td>Wszystkie karty pobrane z BDO (lata z zakresu)</td><td class="num liczby">{{ d.razem_kart }}</td></tr>
+        <tr><td>Karty potwierdzone (przyjęcie lub transport)</td><td class="num liczby">{{ d.potwierdzone }}</td></tr>
+        <tr><td>…w tym z datą potwierdzenia przyjęcia na liście</td><td class="num liczby">{{ d.potwierdzone_z_data_na_liscie }}</td></tr>
+        <tr><td>…w tym w wybranym okresie według tej daty</td><td class="num liczby">{{ d.potwierdzone_w_zakresie_wg_listy }}</td></tr>
+        <tr><td>Karty z datą transportu w wybranym okresie (każdy status)</td><td class="num liczby">{{ d.transport_w_zakresie }}</td></tr>
+        <tr><td><strong>Policzone w statystykach</strong></td><td class="num liczby"><strong>{{ d.w_statystykach }}</strong></td></tr>
+        <tr><td>Pominięte: brak daty potwierdzenia</td><td class="num liczby">{{ d.bez_daty }}</td></tr>
+        <tr><td>BDO nie zwróciło szczegółów</td><td class="num liczby">{{ d.bez_szczegolow }}</td></tr>
+    </table></div>
+
+    <h2 style="font-size:20px;margin:24px 0 10px">Statusy wszystkich kart</h2>
+    <div class="tabela-ramka"><table>
+        {% for status, n in d.statusy %}<tr><td>{{ status }}</td><td class="num liczby">{{ n }}</td></tr>{% endfor %}
+    </table></div>
+
+    <h2 style="font-size:20px;margin:24px 0 10px">Statusy kart z transportem w okresie</h2>
+    <div class="tabela-ramka"><table>
+        {% for status, n in d.transport_w_zakresie_statusy %}<tr><td>{{ status }}</td><td class="num liczby">{{ n }}</td></tr>{% else %}<tr><td>brak</td><td></td></tr>{% endfor %}
+    </table></div>
+
+    <h2 style="font-size:20px;margin:24px 0 10px">Strony pobrane z BDO</h2>
+    <div class="tabela-ramka"><table>
+        <tr><th>Rok</th><th class="num">Strona</th><th class="num">Zwrócono</th><th class="num">Nowych</th><th>Inne pola odpowiedzi</th></tr>
+        {% for s in d.dziennik %}<tr><td class="liczby">{{ s.rok }}</td><td class="num liczby">{{ s.strona }}</td><td class="num liczby">{{ s.zwrocono if s.zwrocono is not none else "błąd" }}</td><td class="num liczby">{{ s.nowych }}</td><td style="font-size:13px">{{ s.pola_odpowiedzi or s.klucze }}</td></tr>{% endfor %}
+    </table></div>
+
+    <h2 style="font-size:20px;margin:24px 0 10px">Pola na liście kart (nazwa: w ilu kartach)</h2>
+    <p style="font-size:13px;word-break:break-word">{% for pole, n in d.pola_listy %}{{ pole }}: {{ n }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+
+    <h2 style="font-size:20px;margin:24px 0 10px">Pola w szczegółach karty</h2>
+    {% for status, pola in d.pola_szczegolow.items() %}
+        <p style="font-size:13px;word-break:break-word"><strong>{{ status }}:</strong> {{ pola|join(", ") }}</p>
+    {% else %}<p>brak potwierdzonych kart</p>{% endfor %}
+{% endif %}
+{% endblock %}

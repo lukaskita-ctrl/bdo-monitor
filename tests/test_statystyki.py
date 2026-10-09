@@ -27,6 +27,7 @@ n+=1; dodaj(2026,n,"CONFIRMATION_GENERATED",None,None,25.0)                     
 n+=1; dodaj(2026,n,"REJECTED",None,None,25.0)                                                              # odrzucona
 n+=1; dodaj(2026,n,"RECEIVE_CONFIRMATION","2026-10-06T10:00:00",None,"BLAD_SZCZEGOLOW",oczyszczalnia="B")  # szczegoly padna
 SZCZEG={k["kpoId"]:k["_szcz"] for r in KARTY.values() for k in r}
+TRYB={"limit":10**6,"baza":0}
 ZAPYTANIA=[]
 class Fake(BaseHTTPRequestHandler):
     def log_message(self,*a): pass
@@ -35,6 +36,8 @@ class Fake(BaseHTTPRequestHandler):
         p=json.loads(self.rfile.read(int(self.headers.get("Content-Length",0))))
         rok=p["Year"]; idx=p["PaginationParameters"]["Page"]["Index"]; size=p["PaginationParameters"]["Page"]["Size"]
         ZAPYTANIA.append((rok,idx))
+        size=min(size, TRYB["limit"])                  # BDO moze obcinac rozmiar strony
+        idx=max(idx - TRYB["baza"], 0)                 # BDO moze numerowac strony od 1
         lista=[{k:v for k,v in c.items() if k!="_szcz"} for c in KARTY.get(rok,[])]
         self._send(200,{"items":lista[idx*size:(idx+1)*size]})
     def do_GET(self):
@@ -52,6 +55,20 @@ assert sum(1 for k in r["items"] if k["status"] == "TRANSPORT_CONFIRMATION") == 
 st=auth.get_detailed_stats(r["items"])
 for k,v in sorted(st.items()): print(" ", k, v["count"], "kursow,", round(v["total_mass"],3), "Mg")
 print("  w tym po potwierdzeniu transportu:", sum(1 for k in r["items"] if k["status"]=="TRANSPORT_CONFIRMATION"))
+# rozne zachowania stronicowania BDO
+for opis,tryb in [("BDO obcina strone do 100 kart",{"limit":100,"baza":0}),("BDO numeruje strony od 1",{"limit":10**6,"baza":1}),("oba naraz",{"limit":50,"baza":1})]:
+    TRYB.update(tryb); ZAPYTANIA.clear()
+    r2=auth.get_kpo_by_date("T","2026-10-01","2026-10-31")
+    print(opis, "-> kart:", len(r2["items"]), "| zapytan o strony:", len(ZAPYTANIA))
+    assert len(r2["items"]) == 422, opis
+TRYB.update({"limit":10**6,"baza":0})
+# strona diagnostyczna
+import app as A0
+cd=A0.app.test_client(); Hd={"Authorization":"Basic "+base64.b64encode(b"l:p").decode()}
+hd=cd.get("/diagnostyka?od=2026-10-01&do=2026-10-31",headers=Hd).get_data(as_text=True)
+print("diagnostyka: policzone", re.search(r"Policzone w statystykach</strong></td><td[^>]*><strong>(\d+)",hd).group(1),
+      "| bez daty na liscie:", "z datą potwierdzenia przyjęcia na liście" in hd, "| nazwy firm na stronie:", "Oczyszczalnia A" in hd)
+assert "Oczyszczalnia A" not in hd
 # styczen -> pyta tez o poprzedni rok
 ZAPYTANIA.clear(); auth.get_kpo_by_date("T","2027-01-01","2027-01-31"); print("zakres styczen 2027 pyta o lata:", sorted({z[0] for z in ZAPYTANIA}))
 ZAPYTANIA.clear(); auth.get_kpo_by_date("T","2026-11-15","2027-02-10"); print("zakres XI 2026-II 2027 pyta o lata:", sorted({z[0] for z in ZAPYTANIA}))

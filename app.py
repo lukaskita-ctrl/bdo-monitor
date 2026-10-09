@@ -150,6 +150,26 @@ def stats_page():
     return render_template('stats.html', stats=[], date_from=date_from, date_to=date_to,
                            blad='Nie udało się połączyć z BDO. Spróbuj ponownie za chwilę.')
 
+@app.route('/diagnostyka')
+def diagnostyka_page():
+    """Tylko odczyt: liczby pokazujace, co BDO zwraca dla statystyk (bez nazw firm)."""
+    now = datetime.now()
+    date_from = request.args.get('od', '')
+    date_to = request.args.get('do', '')
+    if not DATA_RE.match(date_from):
+        date_from = now.strftime('%Y-%m-01')
+    if not DATA_RE.match(date_to):
+        date_to = now.strftime('%Y-%m-%d')
+    if date_from > date_to:
+        date_from, date_to = date_to, date_from
+    token = auth.get_token()
+    if not token:
+        return render_template('diagnostyka.html', d=None, date_from=date_from, date_to=date_to,
+                               blad='Nie udało się zalogować do BDO.')
+    return render_template('diagnostyka.html', d=auth.diagnostyka(token, date_from, date_to),
+                           date_from=date_from, date_to=date_to)
+
+
 def _sprawdz_csrf():
     przeslany = request.form.get('csrf_token', '')
     oczekiwany = session.get('csrf', '')

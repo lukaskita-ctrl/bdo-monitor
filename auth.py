@@ -82,11 +82,15 @@ ROZMIAR_STRONY = 200
 MAKS_STRON = 50
 
 
-def _szukaj_kart(token, year):
+def _szukaj_kart(token, year, dziennik=None):
     """Wszystkie karty z danego roku, gdzie firma jest przejmujacym - strona po stronie.
-    Zwraca liste kart albo None, gdy BDO nie odpowiedzialo juz na pierwsza strone."""
+    Nie zaklada rozmiaru strony (BDO moze zwracac mniej niz prosimy) ani numeracji od 0:
+    konczy dopiero na pustej stronie albo po dwoch stronach z samymi powtorkami.
+    Zwraca liste kart albo None, gdy BDO nie odpowiedzialo juz na pierwsza strone.
+    `dziennik` (lista) - opcjonalnie zbiera przebieg do strony diagnostycznej."""
     url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/receiver/search"
     karty, widziane = [], set()
+    bez_nowych = 0
     for strona in range(MAKS_STRON):
         payload = {
             "PaginationParameters": {
@@ -101,14 +105,24 @@ def _szukaj_kart(token, year):
         }
         wynik = _curl_post_auth(url, payload, token)
         if not isinstance(wynik, dict):
+            if dziennik is not None:
+                dziennik.append({"rok": year, "strona": strona, "zwrocono": None, "nowych": 0,
+                                 "klucze": sorted(wynik.keys()) if isinstance(wynik, dict) else []})
             return None if strona == 0 else karty
         pozycje = wynik.get("items") or wynik.get("Items") or []
         nowe = [k for k in pozycje if k.get("kpoId") not in widziane]
         for k in nowe:
             widziane.add(k.get("kpoId"))
         karty.extend(nowe)
-        # koniec: niepelna strona albo BDO zwraca w kolko to samo
-        if len(pozycje) < ROZMIAR_STRONY or not nowe:
+        if dziennik is not None:
+            dziennik.append({"rok": year, "strona": strona, "zwrocono": len(pozycje), "nowych": len(nowe),
+                             "klucze": sorted(k for k in wynik.keys() if k.lower() != "items"),
+                             "pola_odpowiedzi": {k: v for k, v in wynik.items()
+                                                 if k.lower() != "items" and isinstance(v, (int, float, bool))}})
+        if not pozycje:
+            break
+        bez_nowych = 0 if nowe else bez_nowych + 1
+        if bez_nowych >= 2:
             break
     return karty
 
@@ -268,6 +282,51 @@ def get_kpo_by_date(token, date_from, date_to, year=None):
             "status": kpo.get("cardStatusCodeName"),
         })
     return {"items": wynik, "bez_daty": bez_daty, "bez_szczegolow": bez_szczegolow}
+
+
+def diagnostyka(token, date_from, date_to):
+    """Tylko odczyt. Zestawienie liczb (bez nazw firm) pokazujace, co zwraca BDO
+    i ile kart odpada na kazdym etapie liczenia statystyk."""
+    from collections import Counter
+    rok_od, rok_do = int(date_from[:4]), int(date_to[:4])
+    if date_from[5:7] == "01":
+        rok_od -= 1
+    dziennik, wszystkie = [], []
+    for rok in range(rok_od, rok_do + 1):
+        karty = _szukaj_kart(token, rok, dziennik)
+        if karty:
+            wszystkie.extend(karty)
+    statusy = Counter(k.get("cardStatusCodeName") or "(brak)" for k in wszystkie)
+    pola = Counter(pole for k in wszystkie for pole in k.keys())
+    potw = [k for k in wszystkie if k.get("cardStatusCodeName") in STATUSY_POTWIERDZONE]
+    z_data_listy = [k for k in potw if k.get("receiveConfirmationTime")]
+    w_zakresie_listy = [k for k in z_data_listy if date_from <= k["receiveConfirmationTime"][:10] <= date_to]
+    transport_w_zakresie = [k for k in wszystkie
+                            if date_from <= (k.get("realTransportTime") or k.get("plannedTransportTime") or "")[:10] <= date_to]
+    status_transport = Counter(k.get("cardStatusCodeName") or "(brak)" for k in transport_w_zakresie)
+    # pola szczegolow: po jednej karcie kazdego potwierdzonego statusu (same nazwy pol)
+    pola_szczegolow = {}
+    for status in STATUSY_POTWIERDZONE:
+        przyklad = next((k for k in potw if k.get("cardStatusCodeName") == status), None)
+        if przyklad:
+            det = _szczegoly_karty(token, przyklad)
+            pola_szczegolow[status] = sorted(det.keys()) if det else ["(BDO nie zwróciło szczegółów)"]
+    stat = get_kpo_by_date(token, date_from, date_to) or {"items": [], "bez_daty": "?", "bez_szczegolow": "?"}
+    return {
+        "dziennik": dziennik,
+        "razem_kart": len(wszystkie),
+        "statusy": statusy.most_common(),
+        "pola_listy": sorted(pola.items()),
+        "potwierdzone": len(potw),
+        "potwierdzone_z_data_na_liscie": len(z_data_listy),
+        "potwierdzone_w_zakresie_wg_listy": len(w_zakresie_listy),
+        "transport_w_zakresie": len(transport_w_zakresie),
+        "transport_w_zakresie_statusy": status_transport.most_common(),
+        "pola_szczegolow": pola_szczegolow,
+        "w_statystykach": len(stat["items"]),
+        "bez_daty": stat.get("bez_daty"),
+        "bez_szczegolow": stat.get("bez_szczegolow"),
+    }
 
 
 def get_detailed_stats(kpo_list):
