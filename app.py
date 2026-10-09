@@ -96,8 +96,11 @@ def index():
     token = auth.get_token()
     if token:
         result = auth.get_kpo_list(token)
+        if result is None:
+            return render_template('index.html', kpos=[],
+                                   blad='BDO nie zwróciło listy kart. Spróbuj ponownie za chwilę.')
         kpos = []
-        if result and isinstance(result, dict):
+        if isinstance(result, dict):
             all_kpos = result.get('Items') or result.get('items') or []
             # Filtruj tylko karty do potwierdzenia
             kpos = [k for k in all_kpos if k.get('cardStatusCodeName') == 'CONFIRMATION_GENERATED']
@@ -119,11 +122,13 @@ def stats_page():
         date_to = now.strftime('%Y-%m-%d')
 
     if token:
+        if date_from > date_to:
+            date_from, date_to = date_to, date_from
         result = auth.get_kpo_by_date(token, date_from, date_to)
-        
-        kpo_items = []
-        if result and isinstance(result, dict):
-            kpo_items = result.get("items") or []
+        if result is None:
+            return render_template('stats.html', stats=[], date_from=date_from, date_to=date_to,
+                                   blad='BDO nie zwróciło listy kart. Spróbuj ponownie za chwilę.')
+        kpo_items = result.get("items") or []
         
         podsumowanie = {}
         if kpo_items:
@@ -136,6 +141,8 @@ def stats_page():
             stats=wiersze,
             suma_kursow=sum(d['count'] for _, d in wiersze),
             suma_masy=sum(d['total_mass'] for _, d in wiersze),
+            bez_daty=result.get("bez_daty", 0),
+            bez_szczegolow=result.get("bez_szczegolow", 0),
             date_from=date_from,
             date_to=date_to
         )

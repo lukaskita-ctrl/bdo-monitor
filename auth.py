@@ -77,21 +77,56 @@ def get_token():
 
 # --- OPERACJE NA KPO ---
 
-def get_kpo_list(token, year=2026):
-    """Pobiera listę KPO gdzie jesteś przejmującym"""
+STATUSY_POTWIERDZONE = ("RECEIVE_CONFIRMATION", "TRANSPORT_CONFIRMATION")
+ROZMIAR_STRONY = 200
+MAKS_STRON = 50
+
+
+def _szukaj_kart(token, year):
+    """Wszystkie karty z danego roku, gdzie firma jest przejmujacym - strona po stronie.
+    Zwraca liste kart albo None, gdy BDO nie odpowiedzialo juz na pierwsza strone."""
     url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/receiver/search"
-    payload = {
-        "PaginationParameters": {
-            "Order": {"IsAscending": False},
-            "Page": {"Index": 0, "Size": 50}
-        },
-        "Year": year,
-        "SearchInCarriers": True,
-        "SearchInSenders": True,
-        "TransportDateRange": True,
-        "ReceiveConfirmationDateRange": True
-    }
-    return _curl_post_auth(url, payload, token)
+    karty, widziane = [], set()
+    for strona in range(MAKS_STRON):
+        payload = {
+            "PaginationParameters": {
+                "Order": {"IsAscending": False},
+                "Page": {"Index": strona, "Size": ROZMIAR_STRONY}
+            },
+            "Year": year,
+            "SearchInCarriers": True,
+            "SearchInSenders": True,
+            "TransportDateRange": True,
+            "ReceiveConfirmationDateRange": True
+        }
+        wynik = _curl_post_auth(url, payload, token)
+        if not isinstance(wynik, dict):
+            return None if strona == 0 else karty
+        pozycje = wynik.get("items") or wynik.get("Items") or []
+        nowe = [k for k in pozycje if k.get("kpoId") not in widziane]
+        for k in nowe:
+            widziane.add(k.get("kpoId"))
+        karty.extend(nowe)
+        # koniec: niepelna strona albo BDO zwraca w kolko to samo
+        if len(pozycje) < ROZMIAR_STRONY or not nowe:
+            break
+    return karty
+
+
+def get_kpo_list(token, year=None):
+    """Karty, gdzie firma jest przejmujacym: biezacy rok, a w styczniu takze poprzedni
+    (karty z konca grudnia czekajace na potwierdzenie). Zwraca {"items": [...]} albo None."""
+    from datetime import date
+    dzis = date.today()
+    lata = [year] if year else ([dzis.year - 1, dzis.year] if dzis.month == 1 else [dzis.year])
+    wszystkie, udane = [], False
+    for rok in lata:
+        karty = _szukaj_kart(token, rok)
+        if karty is not None:
+            udane = True
+            wszystkie.extend(karty)
+    return {"items": wszystkie} if udane else None
+
 
 def confirm_kpo(token, kpo_id, remarks=""):
     """Potwierdza przyjęcie KPO.
@@ -156,56 +191,84 @@ def reject_kpo(token, kpo_id, remarks):
         komunikat += " " + str(szczegoly)[:200].rstrip(" .") + "."
     return {"ok": False, "komunikat": komunikat + " Karta NIE została odrzucona."}
 
-def get_kpo_by_date(token, date_from, date_to, year=2026):
-    """Pobiera karty potwierdzone z danego zakresu dat wraz z masami"""
-    
-    url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/receiver/search"
-    payload = {
-        "PaginationParameters": {"Order": {"IsAscending": False}, "Page": {"Index": 0, "Size": 200}},
-        "Year": year,
-        "SearchInCarriers": True,
-        "SearchInSenders": True,
-        "TransportDateRange": True,
-        "ReceiveConfirmationDateRange": True
-    }
-    
-    result = _curl_post_auth(url, payload, token)
-    
-    if not result or "items" not in result:
-        return {"items": []}
-    
-    karty_ze_szczegolami = []
-    
-    for kpo in result["items"]:
-        status = kpo.get("cardStatusCodeName")
-        
-        if status not in ["RECEIVE_CONFIRMATION", "TRANSPORT_CONFIRMATION"]:
+def _szczegoly_karty(token, kpo):
+    """Szczegoly potwierdzonej karty (masa, data potwierdzenia) albo None."""
+    kpo_id = kpo.get("kpoId")
+    if kpo.get("cardStatusCodeName") == "RECEIVE_CONFIRMATION":
+        url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/receiveconfirmed/card?KpoId={kpo_id}&CompanyType=2"
+    else:
+        url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/transportconfirmation/card?KpoId={kpo_id}&CompanyType=2"
+    szczegoly = _curl_get_auth(url, token)
+    return szczegoly if isinstance(szczegoly, dict) else None
+
+
+def _masa(*zrodla):
+    """Masa przyjeta: najpierw skorygowana przez przejmujacego, potem z karty."""
+    for zrodlo in zrodla:
+        if not isinstance(zrodlo, dict):
             continue
-        
-        conf_time = kpo.get("receiveConfirmationTime", "")
-        if conf_time:
-            conf_date = conf_time[:10]
-            if date_from <= conf_date <= date_to:
-                kpo_id = kpo.get("kpoId")
-                
-                if status == "RECEIVE_CONFIRMATION":
-                    details_url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/receiveconfirmed/card?KpoId={kpo_id}&CompanyType=2"
-                else:
-                    details_url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/transportconfirmation/card?KpoId={kpo_id}&CompanyType=2"
-                
-                details = _curl_get_auth(details_url, token)
-                
-                if details and isinstance(details, dict):
-                    karty_ze_szczegolami.append({
-                        "cardNumber": details.get("cardNumber"),
-                        "senderName": kpo.get("senderName"),
-                        "wasteMass": details.get("wasteMass", 0),
-                        "receiveConfirmationTime": details.get("receiveConfirmationTime"),
-                        "wasteCode": kpo.get("wasteCode"),
-                        "status": status
-                    })
-    
-    return {"items": karty_ze_szczegolami}
+        for pole in ("correctedWasteMass", "wasteMass"):
+            try:
+                wartosc = float(zrodlo.get(pole) or 0)
+            except (TypeError, ValueError):
+                continue
+            if wartosc > 0:
+                return wartosc
+    return 0.0
+
+
+def get_kpo_by_date(token, date_from, date_to, year=None):
+    """Karty potwierdzone (przez przejmujacego lub juz takze przez transportujacego),
+    ktorych data potwierdzenia przyjecia miesci sie w zakresie dat.
+    Zwraca {"items": [...], "bez_daty": n, "bez_szczegolow": n} albo None przy bledzie BDO."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    rok_od, rok_do = int(date_from[:4]), int(date_to[:4])
+    if date_from[5:7] == "01":
+        rok_od -= 1  # karty z grudnia potwierdzane w styczniu
+    lata = [year] if year else list(range(rok_od, rok_do + 1))
+
+    kandydaci, udane = [], False
+    for rok in lata:
+        karty = _szukaj_kart(token, rok)
+        if karty is not None:
+            udane = True
+            kandydaci.extend(k for k in karty if k.get("cardStatusCodeName") in STATUSY_POTWIERDZONE)
+    if not udane:
+        return None
+
+    # karty z data na liscie spoza zakresu odrzucamy od razu, bez pytania BDO o szczegoly
+    do_sprawdzenia = []
+    for kpo in kandydaci:
+        data = (kpo.get("receiveConfirmationTime") or "")[:10]
+        if data and not (date_from <= data <= date_to):
+            continue
+        do_sprawdzenia.append(kpo)
+
+    with ThreadPoolExecutor(max_workers=6) as pula:
+        szczegoly = list(pula.map(lambda k: _szczegoly_karty(token, k), do_sprawdzenia))
+
+    wynik, bez_daty, bez_szczegolow = [], 0, 0
+    for kpo, det in zip(do_sprawdzenia, szczegoly):
+        if det is None:
+            bez_szczegolow += 1
+        det = det or {}
+        data = (kpo.get("receiveConfirmationTime") or det.get("receiveConfirmationTime") or "")[:10]
+        if not data:
+            bez_daty += 1
+            continue
+        if not (date_from <= data <= date_to):
+            continue
+        wynik.append({
+            "cardNumber": det.get("cardNumber") or kpo.get("cardNumber"),
+            "senderName": kpo.get("senderName") or det.get("senderName"),
+            "wasteMass": _masa(det, kpo),
+            "receiveConfirmationTime": data,
+            "wasteCode": kpo.get("wasteCode"),
+            "status": kpo.get("cardStatusCodeName"),
+        })
+    return {"items": wynik, "bez_daty": bez_daty, "bez_szczegolow": bez_szczegolow}
+
 
 def get_detailed_stats(kpo_list):
     """Sumuje masy dla poszczególnych wytwórców"""
