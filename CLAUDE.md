@@ -104,7 +104,8 @@ Funkcjonalność i dług:
 - [ ] README zgodne z rzeczywistością.
 
 ### Biuro (lokalnie) — plan
-- [ ] B1: szkielet aplikacji lokalnej + baza SQLite (oczyszczalnie, właściciele, działki/pola, badania gleby, badania osadu, dostawy) + formularze + import 5 sprawozdań INTERLABO z 18.07.2026 (Wola Solecka/Lipsko, 14,89 ha).
+- [x] B1 (PR #8): `biuro/` – `python biuro\app.py` → http://localhost:5001; `biuro/baza.py` (schemat, `stan_kompleksu`, kopie w `biuro/dane/kopie/`); test `python tests/test_biuro.py`. Jednostka rozliczeniowa = **kompleks** (sąsiadujące działki traktowane jako całość, jedno badanie gleby, wspólny limit). Progi gleby w aplikacji tylko dla „grunt lekki” (z sprawozdań INTERLABO); dla innych kategorii aplikacja odsyła do sprawozdania. Okres limitu: 3 lata wstecz od dziś (do potwierdzenia z Łukaszem).
+- [ ] B1 (było): szkielet aplikacji lokalnej + baza SQLite (oczyszczalnie, właściciele, działki/pola, badania gleby, badania osadu, dostawy) + formularze + import 5 sprawozdań INTERLABO z 18.07.2026 (Wola Solecka/Lipsko, 14,89 ha).
 - [ ] B2: pobieranie kart z BDO (odczyt), przypisanie karty do pola → dostawa; dawka Mg s.m./ha z suchej masy badania osadu; limit 45 Mg s.m./ha na 3 lata.
 - [ ] B3: import sprawozdań PDF (tekst: pdfplumber; skany: lokalny OCR) z ekranem „PDF obok wartości” i zatwierdzeniem.
 - [ ] B4: asystent LLM (Ollama, function calling na gotowych funkcjach).

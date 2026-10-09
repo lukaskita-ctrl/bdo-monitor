@@ -1,0 +1,36 @@
+{% extends "base_biuro.html" %}
+{% block tytul %}Kompleksy{% endblock %}
+{% block tresc %}
+<h1>Kompleksy działek</h1>
+{% if lista %}
+<p class="okres">Limit {{ limit|pl }} Mg s.m./ha w ostatnich 3 latach, liczony dla całego kompleksu.</p>
+<div class="tabela-ramka"><table>
+    <thead><tr>
+        <th>Kompleks</th><th>Działki</th><th class="num">ha</th><th>Badanie gleby</th>
+        <th class="num">Wykorzystano</th><th>Limit</th><th class="num">Zostało</th>
+    </tr></thead>
+    <tbody>
+    {% for s in lista %}
+        {% set k = s.kompleks %}
+        <tr>
+            <td><a href="{{ url_for('kompleks', kid=k.id) }}">{{ k.nazwa }}</a>{% if k.gmina %}<br><span class="okres" style="margin:0">gm. {{ k.gmina }}</span>{% endif %}</td>
+            <td>{{ s.dzialki|join(', ') }}</td>
+            <td class="num liczby">{{ k.powierzchnia_ha|pl }}</td>
+            <td>
+                {% if s.badanie %}{{ s.badanie.data_pobrania|data_pl }}, pH {{ s.badanie.ph|pl }}{% else %}<span class="uwaga-czerwona">brak</span>{% endif %}
+                {% for u in s.uwagi_gleby %}<br><span class="uwaga-zolta" style="font-size:14px">{{ u }}</span>{% endfor %}
+            </td>
+            <td class="num liczby">{{ s.dawka_sm_ha|pl }} Mg s.m./ha</td>
+            <td><div class="pasek-limitu {% if s.przekroczony %}ponad{% elif s.procent >= 80 %}blisko{% endif %}" title="{{ s.procent|round|int }}%"><span style="width: {{ [s.procent, 100]|min }}%"></span></div></td>
+            <td class="num liczby">{% if s.przekroczony %}<span class="uwaga-czerwona">przekroczony</span>{% else %}{{ s.pozostalo_sm_mg|pl }} Mg s.m.{% endif %}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table></div>
+{% else %}
+<div class="pusto">
+    <p>Nie ma jeszcze żadnego kompleksu. Dodaj pierwszy: nazwę, powierzchnię i numery działek.</p>
+    <a class="przycisk przycisk-drugi" href="{{ url_for('nowy_kompleks') }}">Dodaj kompleks</a>
+</div>
+{% endif %}
+{% endblock %}

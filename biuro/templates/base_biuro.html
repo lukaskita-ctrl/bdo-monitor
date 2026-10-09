@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block tytul %}Biuro{% endblock %} – Zielony Obieg</title>
+    <link rel="icon" href="{{ url_for('static', filename='icon.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        main { max-width: 1040px; }
+        .pasek-wnetrze { max-width: 1040px; }
+        .pasek-limitu { height: 10px; background: #dfe6e2; border-radius: 5px; overflow: hidden; min-width: 120px; }
+        .pasek-limitu > span { display: block; height: 100%; background: var(--potwierdz); }
+        .pasek-limitu.blisko > span { background: #c98a00; }
+        .pasek-limitu.ponad > span { background: var(--odrzuc); }
+        .uwaga-zolta { color: #7a5600; }
+        .uwaga-czerwona { color: var(--odrzuc); font-weight: 600; }
+        .siatka { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+        .kafel { background: var(--papier); border: 1px solid var(--linia); border-radius: var(--promien); padding: 14px; }
+        .kafel .wartosc { font-size: 24px; font-weight: 600; }
+        .kafel .opis { color: var(--szary); font-size: 14px; }
+        h2 { font-size: 20px; margin: 28px 0 10px; }
+        .formularz { background: var(--papier); border: 1px solid var(--linia); border-radius: var(--promien); padding: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end; }
+        .formularz label { display: grid; gap: 4px; font-weight: 600; font-size: 14px; }
+        .formularz input, .formularz select, .formularz textarea { font: inherit; padding: 9px; border: 1px solid var(--linia); border-radius: 8px; background: #fbfcfb; color: var(--tusz); width: 100%; }
+        .formularz .przycisk { background: var(--swierk); color: #fff; }
+        .szeroko { grid-column: 1 / -1; }
+        .przycisk-maly { min-height: 0; padding: 4px 10px; font-size: 14px; width: auto; }
+        td a { color: var(--swierk); font-weight: 600; }
+        details > summary { cursor: pointer; font-weight: 600; color: var(--swierk); margin: 8px 0; }
+    </style>
+</head>
+<body>
+    <header class="pasek">
+        <div class="pasek-wnetrze">
+            <div class="marka">
+                <img src="{{ url_for('static', filename='icon.png') }}" alt="">
+                <span>Biuro, Zielony Obieg (lokalnie)</span>
+            </div>
+            <nav class="zakladki" aria-label="Sekcje">
+                <a href="{{ url_for('kompleksy') }}" {% if request.endpoint in ('kompleksy', 'kompleks') %}aria-current="page"{% endif %}>Kompleksy</a>
+                <a href="{{ url_for('nowy_kompleks') }}" {% if request.endpoint == 'nowy_kompleks' %}aria-current="page"{% endif %}>Dodaj kompleks</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        {% with komunikaty = get_flashed_messages(with_categories=true) %}
+          {% for kategoria, tekst in komunikaty %}
+            <div class="komunikat komunikat-{{ kategoria }}" role="status">{{ tekst }}</div>
+          {% endfor %}
+        {% endwith %}
+        {% block tresc %}{% endblock %}
+    </main>
+</body>
+</html>
