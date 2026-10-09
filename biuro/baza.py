@@ -34,8 +34,8 @@ NIEPEWNOSC_PH = 0.2
 SCHEMAT = """
 CREATE TABLE IF NOT EXISTS oczyszczalnie (
     id INTEGER PRIMARY KEY,
-    nazwa TEXT NOT NULL UNIQUE,
-    nazwa_bdo TEXT,
+    nazwa TEXT NOT NULL UNIQUE,      -- krotka nazwa robocza, np. "Raszyn"
+    nazwa_bdo TEXT,                  -- nazwa wytworcy w BDO (do dopasowania kart w etapie B2)
     uwagi TEXT
 );
 CREATE TABLE IF NOT EXISTS wlasciciele (
@@ -53,6 +53,13 @@ CREATE TABLE IF NOT EXISTS kompleksy (
     kategoria_gruntu TEXT,
     wlasciciel_id INTEGER REFERENCES wlasciciele(id),
     uwagi TEXT
+);
+-- Kompleks moze byc przypisany do jednej oczyszczalni (duze wywozy) albo do kilku
+-- (male partie kontenerami z kilku oczyszczalni na te same dzialki).
+CREATE TABLE IF NOT EXISTS kompleksy_oczyszczalnie (
+    kompleks_id INTEGER NOT NULL REFERENCES kompleksy(id) ON DELETE CASCADE,
+    oczyszczalnia_id INTEGER NOT NULL REFERENCES oczyszczalnie(id) ON DELETE CASCADE,
+    PRIMARY KEY (kompleks_id, oczyszczalnia_id)
 );
 CREATE TABLE IF NOT EXISTS dzialki (
     id INTEGER PRIMARY KEY,
@@ -144,6 +151,35 @@ def oczyszczalnia_id(conn, nazwa):
     return conn.execute("INSERT INTO oczyszczalnie (nazwa, nazwa_bdo) VALUES (?, ?)", (nazwa, nazwa)).lastrowid
 
 
+def dodaj_oczyszczalnie(conn, nazwa, nazwa_bdo=None, uwagi=None):
+    nazwa = nazwa.strip()
+    istnieje = conn.execute("SELECT id FROM oczyszczalnie WHERE nazwa = ?", (nazwa,)).fetchone()
+    if istnieje:
+        conn.execute("UPDATE oczyszczalnie SET nazwa_bdo = COALESCE(?, nazwa_bdo), uwagi = COALESCE(?, uwagi) "
+                     "WHERE id = ?", (nazwa_bdo, uwagi, istnieje["id"]))
+        return istnieje["id"]
+    return conn.execute("INSERT INTO oczyszczalnie (nazwa, nazwa_bdo, uwagi) VALUES (?, ?, ?)",
+                        (nazwa, nazwa_bdo, uwagi)).lastrowid
+
+
+def ustaw_przypisania(conn, kompleks_id, oczyszczalnie_ids):
+    """Zastepuje liste oczyszczalni przypisanych do kompleksu."""
+    conn.execute("DELETE FROM kompleksy_oczyszczalnie WHERE kompleks_id = ?", (kompleks_id,))
+    for oid in set(int(o) for o in oczyszczalnie_ids):
+        conn.execute("INSERT INTO kompleksy_oczyszczalnie (kompleks_id, oczyszczalnia_id) VALUES (?, ?)",
+                     (kompleks_id, oid))
+
+
+def przypisane_oczyszczalnie(conn, kompleks_id):
+    return conn.execute(
+        "SELECT o.* FROM oczyszczalnie o JOIN kompleksy_oczyszczalnie ko ON ko.oczyszczalnia_id = o.id "
+        "WHERE ko.kompleks_id = ? ORDER BY o.nazwa", (kompleks_id,)).fetchall()
+
+
+def wszystkie_oczyszczalnie(conn):
+    return conn.execute("SELECT * FROM oczyszczalnie ORDER BY nazwa").fetchall()
+
+
 def wlasciciel_id(conn, nazwa):
     nazwa = (nazwa or "").strip()
     if not nazwa:
@@ -155,7 +191,7 @@ def wlasciciel_id(conn, nazwa):
 
 
 def dodaj_kompleks(conn, nazwa, powierzchnia_ha, dzialki, obreb=None, gmina=None,
-                   kategoria_gruntu=None, wlasciciel=None, uwagi=None):
+                   kategoria_gruntu=None, wlasciciel=None, uwagi=None, oczyszczalnie_ids=()):
     kid = conn.execute(
         "INSERT INTO kompleksy (nazwa, obreb, gmina, powierzchnia_ha, kategoria_gruntu, wlasciciel_id, uwagi) "
         "VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -165,6 +201,8 @@ def dodaj_kompleks(conn, nazwa, powierzchnia_ha, dzialki, obreb=None, gmina=None
         numer = numer.strip()
         if numer:
             conn.execute("INSERT OR IGNORE INTO dzialki (kompleks_id, numer) VALUES (?, ?)", (kid, numer))
+    if oczyszczalnie_ids:
+        ustaw_przypisania(conn, kid, oczyszczalnie_ids)
     return kid
 
 
@@ -250,6 +288,7 @@ def stan_kompleksu(conn, kompleks_id, dzis=None):
         "SELECT numer FROM dzialki WHERE kompleks_id = ? ORDER BY id", (kompleks_id,))]
     return {
         "kompleks": k,
+        "oczyszczalnie": przypisane_oczyszczalnie(conn, kompleks_id),
         "dzialki": dzialki,
         "dostawy": dostawy,
         "dostaw_w_okresie": len(w_okresie),
@@ -274,6 +313,39 @@ def ile_mokrej_masy(pozostalo_sm_mg, sucha_masa_proc):
     return pozostalo_sm_mg / (sucha_masa_proc / 100)
 
 
-def lista_kompleksow(conn, dzis=None):
-    ids = [r["id"] for r in conn.execute("SELECT id FROM kompleksy ORDER BY obreb, nazwa")]
+def lista_kompleksow(conn, dzis=None, oczyszczalnia_id=None):
+    if oczyszczalnia_id:
+        ids = [r["id"] for r in conn.execute(
+            "SELECT k.id FROM kompleksy k JOIN kompleksy_oczyszczalnie ko ON ko.kompleks_id = k.id "
+            "WHERE ko.oczyszczalnia_id = ? ORDER BY k.obreb, k.nazwa", (oczyszczalnia_id,))]
+    else:
+        ids = [r["id"] for r in conn.execute("SELECT id FROM kompleksy ORDER BY obreb, nazwa")]
     return [stan_kompleksu(conn, i, dzis) for i in ids]
+
+
+def zestawienie_wg_oczyszczalni(conn, dzis=None):
+    """Grupy: kazda oczyszczalnia z przypisanymi kompleksami i suma wolnego limitu.
+    Kompleks wspolny dla kilku oczyszczalni pojawia sie w kazdej z nich (to ten sam limit)."""
+    grupy = []
+    for o in wszystkie_oczyszczalnie(conn):
+        lista = lista_kompleksow(conn, dzis, oczyszczalnia_id=o["id"])
+        wspoldzielone = {r["kompleks_id"] for r in conn.execute(
+            "SELECT kompleks_id FROM kompleksy_oczyszczalnie GROUP BY kompleks_id HAVING COUNT(*) > 1")}
+        inne = {}
+        for s in lista:
+            if s["kompleks"]["id"] in wspoldzielone:
+                inne[s["kompleks"]["id"]] = [x["nazwa"] for x in s["oczyszczalnie"] if x["id"] != o["id"]]
+        grupy.append({
+            "oczyszczalnia": o,
+            "kompleksy": lista,
+            "wspolne_z": inne,
+            "ha": sum(s["kompleks"]["powierzchnia_ha"] for s in lista),
+            "wolne_sm_mg": sum(s["pozostalo_sm_mg"] for s in lista),
+        })
+    grupy.sort(key=lambda g: (len(g["kompleksy"]) == 0, g["oczyszczalnia"]["nazwa"]))
+    bez = [s for s in lista_kompleksow(conn, dzis) if not s["oczyszczalnie"]]
+    if bez:
+        grupy.append({"oczyszczalnia": None, "kompleksy": bez, "wspolne_z": {},
+                      "ha": sum(s["kompleks"]["powierzchnia_ha"] for s in bez),
+                      "wolne_sm_mg": sum(s["pozostalo_sm_mg"] for s in bez)})
+    return grupy

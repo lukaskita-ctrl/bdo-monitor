@@ -8,6 +8,16 @@
 {% if s.przekroczony %}<div class="komunikat komunikat-error">Limit {{ limit|pl }} Mg s.m./ha w ostatnich 3 latach jest przekroczony.</div>{% endif %}
 {% for u in s.uwagi_gleby %}<div class="komunikat komunikat-error" style="border-color:#c98a00;background:#fff6e0;color:#5c4100">{{ u }}</div>{% endfor %}
 
+<form method="post" action="{{ url_for('zmien_przypisania', kid=k.id) }}" class="formularz" style="margin-bottom:12px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <fieldset class="szeroko" style="border:0;padding:0;margin:0">
+        <legend style="font-weight:600;font-size:14px;margin-bottom:6px">Oczyszczalnie przypisane do kompleksu</legend>
+        {% if wszystkie %}<div class="wybor">{% for o in wszystkie %}<label><input type="checkbox" name="oczyszczalnie" value="{{ o.id }}" {% if o.id in przypisane_ids %}checked{% endif %}> {{ o.nazwa }}</label>{% endfor %}</div>
+        {% else %}<p class="okres" style="margin:0">Brak oczyszczalni – dodaj je w zakładce „Oczyszczalnie”.</p>{% endif %}
+    </fieldset>
+    {% if wszystkie %}<button class="przycisk przycisk-maly" type="submit" style="justify-self:start">Zapisz przypisanie</button>{% endif %}
+</form>
+
 <div class="siatka">
     <div class="kafel"><div class="wartosc liczby">{{ k.powierzchnia_ha|pl }} ha</div><div class="opis">powierzchnia kompleksu</div></div>
     <div class="kafel"><div class="wartosc liczby">{{ s.dawka_sm_ha|pl }}</div><div class="opis">Mg s.m./ha od {{ s.okres_od|data_pl }} (limit {{ limit|pl }})</div></div>

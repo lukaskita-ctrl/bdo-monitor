@@ -16,6 +16,11 @@
         </select>
     </label>
     <label>Właściciel / władający <input name="wlasciciel" value="{{ f.wlasciciel or '' }}"></label>
+    <fieldset class="szeroko" style="border:1px solid var(--linia);border-radius:8px;padding:10px 12px">
+        <legend style="font-weight:600;font-size:14px;padding:0 4px">Oczyszczalnie, z których osad trafia na ten kompleks</legend>
+        {% if wszystkie %}<div class="wybor">{% for o in wszystkie %}<label><input type="checkbox" name="oczyszczalnie" value="{{ o.id }}" {% if o.id|string in wybrane %}checked{% endif %}> {{ o.nazwa }}</label>{% endfor %}</div>
+        {% else %}<p class="okres" style="margin:0">Najpierw dodaj oczyszczalnie w zakładce „Oczyszczalnie”.</p>{% endif %}
+    </fieldset>
     <label class="szeroko">Uwagi <textarea name="uwagi" rows="2">{{ f.uwagi or '' }}</textarea></label>
     <button class="przycisk szeroko" type="submit">Zapisz kompleks</button>
 </form>

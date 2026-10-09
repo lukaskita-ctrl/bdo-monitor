@@ -30,6 +30,13 @@
         .szeroko { grid-column: 1 / -1; }
         .przycisk-maly { min-height: 0; padding: 4px 10px; font-size: 14px; width: auto; }
         td a { color: var(--swierk); font-weight: 600; }
+        .grupa { margin-top: 26px; }
+        .grupa-naglowek { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+        .grupa-naglowek h2 { margin: 0; }
+        .wspolny { display: inline-block; font-size: 13px; color: #5c4100; background: #fff6e0; border: 1px solid #e8c56b; border-radius: 6px; padding: 1px 6px; margin-top: 4px; }
+        .wybor { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+        .wybor label { display: flex; gap: 6px; align-items: center; font-weight: 400; }
+        .wybor input { width: auto; }
         details > summary { cursor: pointer; font-weight: 600; color: var(--swierk); margin: 8px 0; }
     </style>
 </head>
@@ -42,6 +49,7 @@
             </div>
             <nav class="zakladki" aria-label="Sekcje">
                 <a href="{{ url_for('kompleksy') }}" {% if request.endpoint in ('kompleksy', 'kompleks') %}aria-current="page"{% endif %}>Kompleksy</a>
+                <a href="{{ url_for('oczyszczalnie') }}" {% if request.endpoint == 'oczyszczalnie' %}aria-current="page"{% endif %}>Oczyszczalnie</a>
                 <a href="{{ url_for('nowy_kompleks') }}" {% if request.endpoint == 'nowy_kompleks' %}aria-current="page"{% endif %}>Dodaj kompleks</a>
             </nav>
         </div>

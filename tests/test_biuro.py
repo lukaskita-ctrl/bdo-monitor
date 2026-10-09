@@ -58,6 +58,28 @@ try:
 except sqlite3.IntegrityError:
     pass
 
+# przypisania do oczyszczalni: duza oczyszczalnia ma swoje kompleksy, male dziela wspolne
+conn.rollback()
+rasz = baza.dodaj_oczyszczalnie(conn, "Raszyn", "GMINNE PRZEDSIEBIORSTWO KOMUNALNE EKO-RASZYN")
+zar = baza.dodaj_oczyszczalnie(conn, "Żarnów"); fal = baza.dodaj_oczyszczalnie(conn, "Fałków"); oro = baza.dodaj_oczyszczalnie(conn, "Orońsko")
+k_rasz = baza.dodaj_kompleks(conn, "Błonie – dz. 7", 10.0, ["7"], kategoria_gruntu="grunt lekki", oczyszczalnie_ids=[rasz])
+k_mal = baza.dodaj_kompleks(conn, "Wspólny – dz. 8", 2.0, ["8"], kategoria_gruntu="grunt lekki", oczyszczalnie_ids=[zar, fal, oro])
+baza.dodaj_dostawe(conn, k_mal, "2026-09-10", 10.0, 20.0, oczyszczalnia="Żarnów")   # 2 Mg s.m.
+baza.dodaj_dostawe(conn, k_mal, "2026-09-11", 10.0, 20.0, oczyszczalnia="Fałków")   # 2 Mg s.m.
+conn.commit()
+st = baza.stan_kompleksu(conn, k_mal, dzis=date(2026, 10, 9))
+assert abs(st["suma_sm_mg"] - 4.0) < 1e-9, "wspolny limit liczy dostawy ze wszystkich oczyszczalni"
+assert [o["nazwa"] for o in st["oczyszczalnie"]] == ["Fałków", "Orońsko", "Żarnów"]
+grupy = {(g["oczyszczalnia"]["nazwa"] if g["oczyszczalnia"] else None): g for g in baza.zestawienie_wg_oczyszczalni(conn, dzis=date(2026, 10, 9))}
+assert [s_["kompleks"]["nazwa"] for s_ in grupy["Raszyn"]["kompleksy"]] == ["Błonie – dz. 7"]
+assert grupy["Żarnów"]["wspolne_z"][k_mal] == ["Fałków", "Orońsko"]
+assert abs(grupy["Orońsko"]["wolne_sm_mg"] - (90.0 - 4.0)) < 1e-9
+assert None in grupy and any(s_["kompleks"]["id"] == kid for s_ in grupy[None]["kompleksy"])
+baza.ustaw_przypisania(conn, k_mal, [zar]); conn.commit()
+assert [o["nazwa"] for o in baza.przypisane_oczyszczalnie(conn, k_mal)] == ["Żarnów"]
+baza.ustaw_przypisania(conn, k_mal, [zar, fal, oro]); conn.commit()
+print("przypisania: OK (wspólny kompleks, zestawienie, bez przypisania)")
+
 conn.rollback(); conn.close()
 
 # kopia zapasowa
@@ -83,4 +105,15 @@ r = c.post("/kompleks/nowy", data={"csrf_token": tok, "nazwa": "Nowy", "dzialki"
                                    "powierzchnia_ha": "2,5", "kategoria_gruntu": "grunt lekki"},
            follow_redirects=True).get_data(as_text=True)
 assert "Dodano kompleks" in r
+h = c.get("/").get_data(as_text=True)
+assert "Raszyn" in h and "wspólny z: Fałków, Orońsko" in h and "Bez przypisanej oczyszczalni" in h
+h = c.get("/?sm=20").get_data(as_text=True)
+assert "Mg osadu przy 20%" in h
+r = c.post("/oczyszczalnie", data={"csrf_token": tok, "nazwa": "Pionki", "nazwa_bdo": "PWKiC Pionki"}, follow_redirects=True).get_data(as_text=True)
+assert "Zapisano oczyszczalnię" in r and "PWKiC Pionki" in r
+r = c.post(f"/kompleks/{kid}/oczyszczalnie", data={"csrf_token": tok, "oczyszczalnie": [str(rasz)]}, follow_redirects=True).get_data(as_text=True)
+assert "Zapisano przypisanie" in r
+pl = biuro_app.pl
+assert pl(1000, 0) == "1\u202f000" and pl(0, 0) == "0" and pl(3527.4, 0) == "3\u202f527"
+assert pl(24.50) == "24,5" and pl(1000.0) == "1\u202f000" and pl(0.25, 3) == "0,25" and pl(None) == "–"
 print("OK - wszystkie sprawdzenia Biura przeszly")

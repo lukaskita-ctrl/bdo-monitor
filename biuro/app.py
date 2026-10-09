@@ -70,7 +70,9 @@ def sprawdz_csrf():
 def pl(x, miejsca=2):
     if x is None:
         return "–"
-    tekst = f"{float(x):,.{miejsca}f}".rstrip("0").rstrip(".")
+    tekst = f"{float(x):,.{miejsca}f}"
+    if "." in tekst:  # zbedne zera tylko po przecinku (1000 musi zostac 1000)
+        tekst = tekst.rstrip("0").rstrip(".")
     return tekst.replace(",", " ").replace(".", ",")
 
 
@@ -134,8 +136,39 @@ def data_z_formularza(nazwa):
 
 @app.route("/")
 def kompleksy():
-    return render_template("kompleksy.html", lista=baza.lista_kompleksow(db()),
-                           limit=baza.LIMIT_SM_HA)
+    sm = request.args.get("sm", "").replace(",", ".")
+    try:
+        sm = float(sm) if sm else None
+    except ValueError:
+        sm = None
+    return render_template("kompleksy.html", grupy=baza.zestawienie_wg_oczyszczalni(db()),
+                           limit=baza.LIMIT_SM_HA, sm=sm, ile=baza.ile_mokrej_masy)
+
+
+@app.route("/oczyszczalnie", methods=["GET", "POST"])
+def oczyszczalnie():
+    if request.method == "POST":
+        nazwa = (request.form.get("nazwa") or "").strip()
+        if not nazwa:
+            flash("Podaj nazwę oczyszczalni.", "error")
+        else:
+            baza.dodaj_oczyszczalnie(db(), nazwa, (request.form.get("nazwa_bdo") or "").strip() or None,
+                                     (request.form.get("uwagi") or "").strip() or None)
+            db().commit()
+            flash(f"Zapisano oczyszczalnię „{nazwa}”.", "ok")
+        return redirect(url_for("oczyszczalnie"))
+    lista = db().execute(
+        "SELECT o.*, COUNT(ko.kompleks_id) AS kompleksow FROM oczyszczalnie o "
+        "LEFT JOIN kompleksy_oczyszczalnie ko ON ko.oczyszczalnia_id = o.id GROUP BY o.id ORDER BY o.nazwa").fetchall()
+    return render_template("oczyszczalnie.html", lista=lista)
+
+
+@app.route("/kompleks/<int:kid>/oczyszczalnie", methods=["POST"])
+def zmien_przypisania(kid):
+    baza.ustaw_przypisania(db(), kid, request.form.getlist("oczyszczalnie"))
+    db().commit()
+    flash("Zapisano przypisanie do oczyszczalni.", "ok")
+    return redirect(url_for("kompleks", kid=kid))
 
 
 @app.route("/kompleks/<int:kid>")
@@ -145,13 +178,16 @@ def kompleks(kid):
         abort(404)
     badania = db().execute("SELECT * FROM badania_gleby WHERE kompleks_id = ? ORDER BY data_pobrania DESC",
                            (kid,)).fetchall()
-    oczyszczalnie = [r["nazwa"] for r in db().execute("SELECT nazwa FROM oczyszczalnie ORDER BY nazwa")]
+    przypisane = [o["nazwa"] for o in stan["oczyszczalnie"]]
+    oczyszczalnie = przypisane + [o["nazwa"] for o in baza.wszystkie_oczyszczalnie(db()) if o["nazwa"] not in przypisane]
     sm = request.args.get("sm", "").replace(",", ".")
     try:
         sm = float(sm) if sm else None
     except ValueError:
         sm = None
     return render_template("kompleks.html", s=stan, badania=badania, oczyszczalnie=oczyszczalnie,
+                           wszystkie=baza.wszystkie_oczyszczalnie(db()),
+                           przypisane_ids={o["id"] for o in stan["oczyszczalnie"]},
                            limit=baza.LIMIT_SM_HA, metale=baza.METALE, nazwy=baza.NAZWY_METALI,
                            sm=sm, zmiesci=baza.ile_mokrej_masy(stan["pozostalo_sm_mg"], sm) if sm else None,
                            dzis=date.today().isoformat())
@@ -171,13 +207,15 @@ def nowy_kompleks():
                 db(), nazwa, liczba("powierzchnia_ha", min_=0.01, max_=10000), dzialki,
                 obreb=request.form.get("obreb") or None, gmina=request.form.get("gmina") or None,
                 kategoria_gruntu=request.form.get("kategoria_gruntu") or None,
-                wlasciciel=request.form.get("wlasciciel"), uwagi=request.form.get("uwagi") or None)
+                wlasciciel=request.form.get("wlasciciel"), uwagi=request.form.get("uwagi") or None,
+                oczyszczalnie_ids=request.form.getlist("oczyszczalnie"))
             db().commit()
             flash(f"Dodano kompleks „{nazwa}”.", "ok")
             return redirect(url_for("kompleks", kid=kid))
         except ValueError as e:
             flash(str(e), "error")
-    return render_template("nowy_kompleks.html", f=request.form)
+    return render_template("nowy_kompleks.html", f=request.form, wszystkie=baza.wszystkie_oczyszczalnie(db()),
+                           wybrane=set(request.form.getlist("oczyszczalnie")))
 
 
 @app.route("/kompleks/<int:kid>/dostawa", methods=["POST"])
