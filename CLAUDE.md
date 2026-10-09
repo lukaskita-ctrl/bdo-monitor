@@ -25,6 +25,14 @@ Właściciel produktu: Łukasz. Nie jest programistą — czyta Pythona, ale dec
 6. **Małe kroki.** Jedno zadanie = jedna gałąź = krótki opis zmian po polsku (co, dlaczego, jak sprawdzić).
 7. **Nie dokładaj funkcji na zapas.** Złożoność dodajemy, gdy realne użycie pokaże potrzebę.
 
+## Architektura (decyzja Łukasza, 9.10.2026): hybryda
+
+- **Render = „teren”** (to, co musi działać zawsze i z telefonu): lista kart BDO, potwierdzanie i odrzucanie, statystyki. Bez bazy danych — darmowy plan wystarcza (pliki na Renderze znikają przy każdym wdrożeniu, więc nic trwałego tam nie zapisujemy).
+- **PC Łukasza = „biuro”** (praca przy komputerze): baza działek, badań gleby i osadu, dostaw; przypisywanie kart do działek i liczenie dawek; odczyt sprawozdań z laboratoriów; asystent LLM; ewentualnie basal. Działa lokalnie (`localhost`), dane nie opuszczają komputera.
+- Biuro pobiera karty z BDO **tylko do odczytu** (te same klucze). Potwierdzanie/odrzucanie kart wyłącznie w aplikacji na Renderze.
+- Biuro: SQLite w pliku poza gitem (dane osobowe właścicieli działek), automatyczna kopia zapasowa. Modele lokalne przez Ollama (RTX 5070 Ti, 12 GB VRAM): Qwen3 14B do asystenta z function calling (do porównania z Bielikiem), model widzący lub Tesseract do skanów; Mistral API tylko opcjonalnie.
+- Asystent LLM: **gotowe, przetestowane funkcje w Pythonie** (np. `limit_pozostaly(pole)`), model tylko wybiera funkcję i parametry; odpowiedź zawsze z pokazaniem źródłowych wierszy. Liczby liczy Python.
+
 ## Stack i środowisko
 
 - Python, Flask (Blueprints), SQLite (moduł Działki)
@@ -94,6 +102,13 @@ Funkcjonalność i dług:
 - [ ] `logging`, przypięte wersje, `gunicorn`, LICENSE.
 - [ ] Testy (statystyki, filtr dat, paginacja) i proste CI.
 - [ ] README zgodne z rzeczywistością.
+
+### Biuro (lokalnie) — plan
+- [ ] B1: szkielet aplikacji lokalnej + baza SQLite (oczyszczalnie, właściciele, działki/pola, badania gleby, badania osadu, dostawy) + formularze + import 5 sprawozdań INTERLABO z 18.07.2026 (Wola Solecka/Lipsko, 14,89 ha).
+- [ ] B2: pobieranie kart z BDO (odczyt), przypisanie karty do pola → dostawa; dawka Mg s.m./ha z suchej masy badania osadu; limit 45 Mg s.m./ha na 3 lata.
+- [ ] B3: import sprawozdań PDF (tekst: pdfplumber; skany: lokalny OCR) z ekranem „PDF obok wartości” i zatwierdzeniem.
+- [ ] B4: asystent LLM (Ollama, function calling na gotowych funkcjach).
+- [ ] B5: basal w trybie cienia (opcjonalnie).
 
 ### Etap 5 — funkcje v1.0 (z notatek Łukasza)
 - [ ] Widok nowych kart z akcją zatwierdź / odrzuć, odświeżany na bieżąco.
