@@ -44,13 +44,13 @@ Właściciel produktu: Łukasz. Nie jest programistą — czyta Pythona, ale dec
 - API wymaga wartości liczbowych (nie `None`) w polach typu `correctedWasteMass`.
 - Odpowiedzi bywają z kluczem `items` albo `Items` — obsługuj oba w jednym miejscu.
 - Pola kart mogą być nieobecne (np. `wasteCodeDescription`, `wasteMass`) — kod nie może się przez to wywracać.
+- Odrzucenie KPO: `PUT /WasteRegister/WasteTransferCard/v1/Kpo/reject` z `{KpoId, Remarks}` — **adres niezweryfikowany** (brak dostępu do specyfikacji API). Po pierwszym realnym odrzuceniu sprawdzić w BDO status karty; jeśli BDO zwróci 404, poprawić adres.
 
 ## Stan obecny kodu (z przeglądu, październik 2026)
 
 Krytyczne:
 - `auth.py`: zapytania nadal przez `curl` w `subprocess` (bez `shell=True` od PR #1); token widoczny w argumentach procesu → docelowo `requests`.
 - Logowanie HTTP Basic (`APP_USER`/`APP_PASSWORD`) działa od PR #1 — docelowo można zamienić na formularz logowania z sesją.
-- `/confirm/<id>` to GET (link) → podatne na CSRF i prefetch.
 - Brak paginacji: lista 50 kart, statystyki 200 → statystyki po cichu zaniżone.
 - `monitor.py`: karta dodawana do `known_kpos` przed wysłaniem maila, wynik wysyłki ignorowany; stan tylko w pamięci (ginie po restarcie).
 - Rok `2026` wpisany na sztywno w `get_kpo_list` i `get_kpo_by_date`.
@@ -78,7 +78,7 @@ Funkcjonalność i dług:
 - [ ] Jeden klient API na `requests`: bez shella, timeouty, cache tokena do wygaśnięcia, obsługa `items`/`Items`. (Pilna łatka: `shell=True` usunięte w PR #1.)
 - [x] Konfiguracja ze zmiennych środowiskowych + `.env.example` (PR #2).
 - [x] Logowanie do aplikacji: HTTP Basic z env (PR #1).
-- [ ] Potwierdzanie przez POST + CSRF + komunikat o wyniku.
+- [x] Potwierdzanie i odrzucanie (z powodem) przez POST + CSRF + okno potwierdzenia + komunikat o wyniku (PR #3). `confirm_kpo` zwraca `{"ok", "komunikat"}` i sprawdza kod HTTP odpowiedzi BDO.
 
 ### Etap 2 — kompletne i poprawne dane
 - [ ] Paginacja we wszystkich zapytaniach.
