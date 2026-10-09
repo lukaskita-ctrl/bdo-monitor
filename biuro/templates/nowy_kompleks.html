@@ -1,0 +1,27 @@
+{% extends "base_biuro.html" %}
+{% block tytul %}Dodaj działkę lub kompleks{% endblock %}
+{% block tresc %}
+<h1>Dodaj działkę lub kompleks</h1>
+<p class="okres">Jedna pozycja = jedna próbka gleby. Pojedyncza działka: wpisz jeden numer. Kompleks: kilka małych, sąsiadujących działek badanych jedną próbką – wpisz wszystkie numery; dawka i limit liczone są dla nich razem.</p>
+<form method="post" class="formularz">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="szeroko">Nazwa robocza <input name="nazwa" required value="{{ f.nazwa or '' }}" placeholder="np. Wola Solecka – dz. 53–98"></label>
+    <label class="szeroko">Numery działek (oddzielone przecinkami) <input name="dzialki" required value="{{ f.dzialki or '' }}" placeholder="53, 54/1, 54/2, 54/3, 98"></label>
+    <label>Powierzchnia [ha] <input name="powierzchnia_ha" required inputmode="decimal" value="{{ f.powierzchnia_ha or '' }}" placeholder="3,86"></label>
+    <label>Obręb <input name="obreb" value="{{ f.obreb or '' }}"></label>
+    <label>Gmina <input name="gmina" value="{{ f.gmina or '' }}"></label>
+    <label>Kategoria gruntu
+        <select name="kategoria_gruntu">
+            {% for kat in ['grunt lekki', 'grunt średni', 'grunt ciężki'] %}<option {% if f.kategoria_gruntu == kat %}selected{% endif %}>{{ kat }}</option>{% endfor %}
+        </select>
+    </label>
+    <label>Właściciel / władający <input name="wlasciciel" value="{{ f.wlasciciel or '' }}"></label>
+    <fieldset class="szeroko" style="border:1px solid var(--linia);border-radius:8px;padding:10px 12px">
+        <legend style="font-weight:600;font-size:14px;padding:0 4px">Oczyszczalnie, z których osad tu trafia</legend>
+        {% if wszystkie %}<div class="wybor">{% for o in wszystkie %}<label><input type="checkbox" name="oczyszczalnie" value="{{ o.id }}" {% if o.id|string in wybrane %}checked{% endif %}> {{ o.nazwa }}</label>{% endfor %}</div>
+        {% else %}<p class="okres" style="margin:0">Najpierw dodaj oczyszczalnie w zakładce „Oczyszczalnie”.</p>{% endif %}
+    </fieldset>
+    <label class="szeroko">Uwagi <textarea name="uwagi" rows="2">{{ f.uwagi or '' }}</textarea></label>
+    <button class="przycisk szeroko" type="submit">Zapisz</button>
+</form>
+{% endblock %}

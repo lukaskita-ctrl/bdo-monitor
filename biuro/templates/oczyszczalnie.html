@@ -1,0 +1,24 @@
+{% extends "base_biuro.html" %}
+{% block tytul %}Oczyszczalnie{% endblock %}
+{% block tresc %}
+<h1>Oczyszczalnie</h1>
+{% if lista %}
+<div class="tabela-ramka"><table>
+    <thead><tr><th>Nazwa robocza</th><th>Nazwa w BDO</th><th class="num">Kompleksy</th><th>Uwagi</th></tr></thead>
+    <tbody>
+    {% for o in lista %}
+        <tr><td><strong>{{ o.nazwa }}</strong></td><td>{{ o.nazwa_bdo or '–' }}</td><td class="num liczby">{{ o.kompleksow }}</td><td>{{ o.uwagi or '' }}</td></tr>
+    {% endfor %}
+    </tbody>
+</table></div>
+{% endif %}
+<h2>Dodaj lub popraw oczyszczalnię</h2>
+<form method="post" class="formularz">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Nazwa robocza <input name="nazwa" required placeholder="np. Raszyn"></label>
+    <label class="szeroko">Nazwa wytwórcy w BDO (jak na kartach KPO) <input name="nazwa_bdo" placeholder="np. GMINNE PRZEDSIĘBIORSTWO KOMUNALNE …"></label>
+    <label class="szeroko">Uwagi <input name="uwagi" placeholder="np. małe partie kontenerami"></label>
+    <button class="przycisk" type="submit">Zapisz</button>
+</form>
+<p class="okres" style="margin-top:8px">Nazwa w BDO posłuży w etapie B2 do automatycznego rozpoznania, z której oczyszczalni jest karta. Jeśli wpiszesz istniejącą nazwę roboczą, dane zostaną zaktualizowane.</p>
+{% endblock %}

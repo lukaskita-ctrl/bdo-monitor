@@ -1,0 +1,102 @@
+{% extends "base_biuro.html" %}
+{% set k = s.kompleks %}
+{% block tytul %}{{ k.nazwa }}{% endblock %}
+{% block tresc %}
+<h1>{{ k.nazwa }}</h1>
+<p class="okres">{% if s.dzialki|length > 1 %}Kompleks {{ s.dzialki|length }} sąsiadujących działek ({{ s.dzialki|join(', ') }}) – jedna próbka gleby{% else %}Działka {{ s.dzialki|join(', ') }}{% endif %}, {{ k.obreb or '' }}{% if k.gmina %}, gm. {{ k.gmina }}{% endif %}, {{ k.kategoria_gruntu or 'kategoria gruntu nieznana' }}</p>
+
+{% if s.przekroczony %}<div class="komunikat komunikat-error">Limit {{ limit|pl }} Mg s.m./ha w ostatnich 3 latach jest przekroczony.</div>{% endif %}
+{% for u in s.uwagi_gleby %}<div class="komunikat komunikat-error" style="border-color:#c98a00;background:#fff6e0;color:#5c4100">{{ u }}</div>{% endfor %}
+
+<form method="post" action="{{ url_for('zmien_przypisania', kid=k.id) }}" class="formularz" style="margin-bottom:12px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <fieldset class="szeroko" style="border:0;padding:0;margin:0">
+        <legend style="font-weight:600;font-size:14px;margin-bottom:6px">Oczyszczalnie, z których osad trafia tutaj</legend>
+        {% if wszystkie %}<div class="wybor">{% for o in wszystkie %}<label><input type="checkbox" name="oczyszczalnie" value="{{ o.id }}" {% if o.id in przypisane_ids %}checked{% endif %}> {{ o.nazwa }}</label>{% endfor %}</div>
+        {% else %}<p class="okres" style="margin:0">Brak oczyszczalni – dodaj je w zakładce „Oczyszczalnie”.</p>{% endif %}
+    </fieldset>
+    {% if wszystkie %}<button class="przycisk przycisk-maly" type="submit" style="justify-self:start">Zapisz przypisanie</button>{% endif %}
+</form>
+
+<div class="siatka">
+    <div class="kafel"><div class="wartosc liczby">{{ k.powierzchnia_ha|pl }} ha</div><div class="opis">powierzchnia (jedna próbka gleby)</div></div>
+    <div class="kafel"><div class="wartosc liczby">{{ s.dawka_sm_ha|pl }}</div><div class="opis">Mg s.m./ha od {{ s.okres_od|data_pl }} (limit {{ limit|pl }})</div></div>
+    <div class="kafel"><div class="wartosc liczby">{{ s.pozostalo_sm_mg|pl }}</div><div class="opis">Mg s.m. można jeszcze dać ({{ s.pozostalo_sm_ha|pl }} Mg s.m./ha)</div></div>
+    <div class="kafel"><div class="wartosc liczby">{{ s.suma_mokra_mg|pl }}</div><div class="opis">Mg osadu w {{ s.dostaw_w_okresie }} dostawach (3 lata)</div></div>
+</div>
+
+<form method="get" class="formularz" style="margin-top:12px">
+    <label>Ile to ton osadu przy suchej masie [%]? <input name="sm" inputmode="decimal" value="{{ sm|pl if sm else '' }}" placeholder="np. 18"></label>
+    <button class="przycisk" type="submit">Przelicz</button>
+    {% if zmiesci is not none %}<p class="szeroko" style="margin:0;font-weight:600">Przy {{ sm|pl }}% s.m. zmieści się jeszcze ok. <span class="liczby">{{ zmiesci|pl(1) }} Mg</span> osadu (ok. {{ (zmiesci / 25)|round|int }} aut po 25 Mg).</p>{% endif %}
+</form>
+
+<h2>Dostawy osadu</h2>
+{% if s.dostawy %}
+<div class="tabela-ramka"><table>
+    <thead><tr><th>Data</th><th>Oczyszczalnia</th><th>Karta</th><th class="num">Masa</th><th class="num">S.m.</th><th class="num">Mg s.m.</th><th></th></tr></thead>
+    <tbody>
+    {% for d in s.dostawy %}
+        <tr>
+            <td class="liczby">{{ d.data|data_pl }}</td>
+            <td>{{ d.oczyszczalnia or '–' }}</td>
+            <td>{{ d.karta_nr or '–' }}</td>
+            <td class="num liczby">{{ d.masa_mg|pl }} Mg</td>
+            <td class="num liczby">{{ d.sucha_masa_proc|pl }}%</td>
+            <td class="num liczby">{{ (d.masa_mg * d.sucha_masa_proc / 100)|pl(3) }}</td>
+            <td><form method="post" action="{{ url_for('usun_dostawe', kid=k.id, did=d.id) }}" onsubmit="return confirm('Usunąć tę dostawę?');" style="margin:0">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="przycisk przycisk-odrzuc przycisk-maly" type="submit">Usuń</button></form></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table></div>
+{% else %}<p class="okres">Brak dostaw.</p>{% endif %}
+
+<details {% if not s.dostawy %}open{% endif %}><summary>Dodaj dostawę ręcznie</summary>
+<form method="post" action="{{ url_for('dodaj_dostawe', kid=k.id) }}" class="formularz">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Data <input type="date" name="data" required value="{{ dzis }}"></label>
+    <label>Masa [Mg] <input name="masa_mg" required inputmode="decimal" placeholder="25,1"></label>
+    <label>Sucha masa [%] <input name="sucha_masa_proc" required inputmode="decimal" placeholder="18,5"></label>
+    <label>Oczyszczalnia <input name="oczyszczalnia" list="oczyszczalnie"></label>
+    <datalist id="oczyszczalnie">{% for o in oczyszczalnie %}<option value="{{ o }}">{% endfor %}</datalist>
+    <label>Nr karty KPO <input name="karta_nr"></label>
+    <button class="przycisk" type="submit">Zapisz dostawę</button>
+</form>
+</details>
+
+<h2>Badania gleby</h2>
+{% if badania %}
+<div class="tabela-ramka"><table>
+    <thead><tr><th>Sprawozdanie</th><th>Pobranie</th><th class="num">pH</th><th class="num">P₂O₅</th>{% for m in metale %}<th class="num">{{ m|capitalize }}</th>{% endfor %}<th>Ocena lab.</th></tr></thead>
+    <tbody>
+    {% for b in badania %}
+        <tr>
+            <td>{{ b.nr_sprawozdania }}<br><span class="okres" style="margin:0">{{ b.laboratorium or '' }}</span></td>
+            <td class="liczby">{{ b.data_pobrania|data_pl }}</td>
+            <td class="num liczby">{{ b.ph|pl }}</td>
+            <td class="num liczby">{{ b|wynik('p2o5') }}</td>
+            {% for m in metale %}<td class="num liczby">{{ b|wynik(m) }}</td>{% endfor %}
+            <td>{{ b.ocena_laboratorium or '–' }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table></div>
+<p class="okres" style="margin-top:6px">Metale w mg/kg s.m., P₂O₅ w mg/100 g. „&lt;” = poniżej granicy oznaczalności.</p>
+{% else %}<p class="okres">Brak badań gleby.</p>{% endif %}
+
+<details><summary>Dodaj badanie gleby ręcznie</summary>
+<form method="post" action="{{ url_for('dodaj_badanie', kid=k.id) }}" class="formularz">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Nr sprawozdania <input name="nr_sprawozdania" required></label>
+    <label>Laboratorium <input name="laboratorium"></label>
+    <label>Data pobrania <input type="date" name="data_pobrania" required></label>
+    <label>pH <input name="ph" inputmode="decimal"></label>
+    <label>P₂O₅ <input name="p2o5" placeholder="np. 5,3"></label>
+    {% for m in metale %}<label>{{ nazwy[m] }} <input name="{{ m }}" placeholder="np. <0,01"></label>{% endfor %}
+    <label>Ocena laboratorium <input name="ocena_laboratorium" placeholder="spełnia"></label>
+    <button class="przycisk" type="submit">Zapisz badanie</button>
+</form>
+</details>
+{% endblock %}
