@@ -59,8 +59,7 @@ Funkcjonalność i dług:
 - Nowy token przy każdym żądaniu, statystyki robią 1 + N wywołań sekwencyjnie → wolno, ryzyko timeoutu.
 - Brak timeoutów na wywołaniach sieciowych i SMTP.
 - Filtr dat robiony lokalnie po `receiveConfirmationTime`; karty o statusie `TRANSPORT_CONFIRMATION` mieszają się w statystykach. (Łukasz zgłaszał też, że karty „znikają ze statystyk” po potwierdzeniu — prawdopodobnie ten sam problem ze statusami/paginacją.)
-- Błędy zwracane jako gołe stringi z kodem 200; brak komunikatów (flash) po potwierdzeniu.
-- Duplikaty `index.html` i `stats.html` w katalogu głównym (Flask używa `templates/`); `templates/stats.html` ma zdublowane `<meta charset>` i `<title>`.
+- Wygląd (PR #4): wspólny szablon `templates/base.html` + `static/style.css` (bez Bootstrapa), karty jako bloki pod telefon, filtry Jinja `data_pl`, `mg`, `karty` w `app.py`.
 - Cztery prawie identyczne funkcje `_curl_*`, gołe `except:`.
 - `requests` w requirements, ale nieużywany; brak przypiętych wersji i `gunicorn`.
 - `print` zamiast `logging`; brak testów i CI.
@@ -92,7 +91,7 @@ Funkcjonalność i dług:
 - [ ] Jeden sposób uruchamiania zgodny z Renderem.
 
 ### Etap 4 — porządki
-- [ ] Usunąć duplikaty HTML, naprawić `stats.html`.
+- [x] Usunąć duplikaty HTML, naprawić `stats.html` (PR #4).
 - [ ] `logging`, przypięte wersje, `gunicorn`, LICENSE.
 - [ ] Testy (statystyki, filtr dat, paginacja) i proste CI.
 - [ ] README zgodne z rzeczywistością.
