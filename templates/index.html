@@ -22,7 +22,14 @@
         .flash { padding: 12px 16px; border-radius: 4px; margin-bottom: 16px; font-weight: bold; }
         .flash-ok { background: #e8f5e9; color: #1b5e20; border: 1px solid #81c784; }
         .flash-error { background: #ffebee; color: #b71c1c; border: 1px solid #e57373; }
-        form.confirm { margin: 0; }
+        form.confirm { margin: 0 0 6px 0; }
+        .btn-reject { background: #e53935; color: white; display: inline-block; list-style: none; }
+        .btn-reject:hover { background: #c62828; }
+        details.reject summary::-webkit-details-marker { display: none; }
+        details.reject[open] summary { background: #757575; }
+        form.reject { margin-top: 8px; }
+        form.reject textarea { width: 100%; min-width: 180px; box-sizing: border-box; font-family: inherit; padding: 6px; }
+        .akcje { min-width: 200px; }
         .btn-stats { padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; }
     </style>
 </head>
@@ -55,12 +62,24 @@
             <td>{{ kpo.wasteCode }}</td>
             <td>{{ kpo.senderName }}</td>
             <td>{{ kpo.cardStatus }}</td>
-            <td>
+            <td class="akcje">
                 <form class="confirm" method="post" action="/confirm/{{ kpo.kpoId }}"
                       onsubmit='return confirm({{ ("Potwierdzić przyjęcie karty " ~ kpo.cardNumber ~ " od: " ~ kpo.senderName ~ "?\n\nTo czynność prawna w BDO.")|tojson }});'>
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-confirm">Potwierdź</button>
                 </form>
+                <details class="reject">
+                    <summary class="btn btn-reject">Odrzuć</summary>
+                    <form class="reject" method="post" action="/reject/{{ kpo.kpoId }}"
+                          onsubmit='return confirm({{ ("Odrzucić kartę " ~ kpo.cardNumber ~ " od: " ~ kpo.senderName ~ "?\n\nTo czynność prawna w BDO.")|tojson }});'>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <label>Powód odrzucenia (trafi do BDO):<br>
+                            <textarea name="powod" rows="3" maxlength="500" minlength="3" required
+                                      placeholder="np. niezgodna masa: ważenie u odbiorcy 24,1 Mg"></textarea>
+                        </label>
+                        <button type="submit" class="btn btn-reject">Wyślij odrzucenie</button>
+                    </form>
+                </details>
             </td>
         </tr>
         {% endfor %}

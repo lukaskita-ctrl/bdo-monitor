@@ -93,14 +93,41 @@ def stats_page():
         
     return "Nie udało się połączyć z BDO."
 
+def _sprawdz_csrf():
+    przeslany = request.form.get('csrf_token', '')
+    oczekiwany = session.get('csrf', '')
+    return bool(oczekiwany) and hmac.compare_digest(przeslany.encode(), oczekiwany.encode())
+
+
+@app.route('/reject/<kpo_id>', methods=['POST'])
+def reject_kpo_route(kpo_id):
+    """Odrzucenie karty z powodem - tylko swiadome klikniecie w formularzu."""
+    if not KPO_ID_RE.match(kpo_id):
+        abort(400)
+    if not _sprawdz_csrf():
+        flash('Odśwież stronę i spróbuj ponownie (wygasła sesja). Karta NIE została odrzucona.', 'error')
+        return redirect(url_for('index'))
+    powod = ' '.join(request.form.get('powod', '').split())
+    if len(powod) < 3:
+        flash('Podaj powód odrzucenia. Karta NIE została odrzucona.', 'error')
+        return redirect(url_for('index'))
+    powod = powod[:500]
+    token = auth.get_token()
+    if not token:
+        flash('Błąd autoryzacji BDO. Karta NIE została odrzucona.', 'error')
+        return redirect(url_for('index'))
+    wynik = auth.reject_kpo(token, kpo_id, powod) or {"ok": False, "komunikat": "Nieznany błąd. Karta NIE została odrzucona."}
+    print("Wynik odrzucenia:", kpo_id, wynik)
+    flash(wynik["komunikat"], 'ok' if wynik["ok"] else 'error')
+    return redirect(url_for('index'))
+
+
 @app.route('/confirm/<kpo_id>', methods=['POST'])
 def confirm_kpo_route(kpo_id):
     """Potwierdzenie pojedynczej karty - tylko swiadome klikniecie w formularzu."""
     if not KPO_ID_RE.match(kpo_id):
         abort(400)
-    przeslany = request.form.get('csrf_token', '')
-    oczekiwany = session.get('csrf', '')
-    if not oczekiwany or not hmac.compare_digest(przeslany.encode(), oczekiwany.encode()):
+    if not _sprawdz_csrf():
         flash('Odśwież stronę i spróbuj ponownie (wygasła sesja). Karta NIE została potwierdzona.', 'error')
         return redirect(url_for('index'))
     token = auth.get_token()

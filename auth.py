@@ -133,6 +133,29 @@ def confirm_kpo(token, kpo_id, remarks=""):
         komunikat += " " + str(szczegoly)[:200].rstrip(" .") + "."
     return {"ok": False, "komunikat": komunikat + " Karta NIE została potwierdzona."}
 
+def reject_kpo(token, kpo_id, remarks):
+    """Odrzuca KPO (odmowa przyjecia) z podanym powodem.
+    UWAGA: adres endpointu przyjety wg znanych integracji API BDO - przy
+    pierwszym uzyciu sprawdzic w BDO, czy karta ma status "Odrzucona".
+    Zwraca slownik {"ok": bool, "komunikat": str}."""
+    url = f"{config.API_URL}/WasteRegister/WasteTransferCard/v1/Kpo/reject"
+    payload = {"KpoId": kpo_id, "Remarks": remarks}
+    kod, tekst = _curl_put_auth_status(url, payload, token)
+    if 200 <= kod < 300:
+        return {"ok": True, "komunikat": "Karta odrzucona w BDO. Powód: " + remarks}
+    print(f"BDO odrzuciło żądanie odrzucenia: kod {kod}, odpowiedź: {tekst[:500]}")
+    szczegoly = ""
+    try:
+        dane = json.loads(tekst)
+        if isinstance(dane, dict):
+            szczegoly = dane.get("message") or dane.get("Message") or dane.get("title") or ""
+    except (ValueError, TypeError):
+        pass
+    komunikat = f"Nie udało się odrzucić karty (kod {kod or 'brak połączenia'})."
+    if szczegoly:
+        komunikat += " " + str(szczegoly)[:200].rstrip(" .") + "."
+    return {"ok": False, "komunikat": komunikat + " Karta NIE została odrzucona."}
+
 def get_kpo_by_date(token, date_from, date_to, year=2026):
     """Pobiera karty potwierdzone z danego zakresu dat wraz z masami"""
     
