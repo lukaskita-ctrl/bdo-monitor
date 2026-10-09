@@ -119,7 +119,7 @@ def confirm_kpo(token, kpo_id, remarks=""):
     
     kod, tekst = _curl_put_auth_status(url, payload, token)
     if 200 <= kod < 300:
-        return {"ok": True, "komunikat": f"Karta potwierdzona w BDO (masa: {waste_mass} Mg)."}
+        return {"ok": True, "komunikat": "Karta potwierdzona w BDO (masa: " + str(waste_mass).replace(".", ",") + " Mg)."}
     print(f"BDO odrzuciło potwierdzenie: kod {kod}, odpowiedź: {tekst[:500]}")
     szczegoly = ""
     try:

@@ -1,90 +1,48 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BDO Monitor - Zielony Obieg</title>
-    
-    <!-- Ikona dla iPhone -->
-    <link rel="apple-touch-icon" href="/static/icon.png">
-    <link rel="icon" href="/static/icon.png">
-    
-    <style>
-        body { font-family: Arial; padding: 20px; }
-        h1 { color: #2e7d32; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background: #2e7d32; color: white; }
-        tr:hover { background: #f5f5f5; }
-        .btn { padding: 8px 16px; border: none; cursor: pointer; border-radius: 4px; text-decoration: none; }
-        .btn-confirm { background: #4CAF50; color: white; }
-        .btn-confirm:hover { background: #45a049; }
-        .flash { padding: 12px 16px; border-radius: 4px; margin-bottom: 16px; font-weight: bold; }
-        .flash-ok { background: #e8f5e9; color: #1b5e20; border: 1px solid #81c784; }
-        .flash-error { background: #ffebee; color: #b71c1c; border: 1px solid #e57373; }
-        form.confirm { margin: 0 0 6px 0; }
-        .btn-reject { background: #e53935; color: white; display: inline-block; list-style: none; }
-        .btn-reject:hover { background: #c62828; }
-        details.reject summary::-webkit-details-marker { display: none; }
-        details.reject[open] summary { background: #757575; }
-        form.reject { margin-top: 8px; }
-        form.reject textarea { width: 100%; min-width: 180px; box-sizing: border-box; font-family: inherit; padding: 6px; }
-        .akcje { min-width: 200px; }
-        .btn-stats { padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <h1>Monitor KPO - Zielony Obieg</h1>
-    {% with komunikaty = get_flashed_messages(with_categories=true) %}
-      {% for kategoria, tekst in komunikaty %}
-        <div class="flash flash-{{ kategoria }}">{{ tekst }}</div>
-      {% endfor %}
-    {% endwith %}
-    <p>Karty do zatwierdzenia: {{ kpos|length }}</p>
-    
-    <div style="margin-bottom: 20px;">
-        <a href="/stats" class="btn-stats">📊 ZOBACZ SUMY TON I STATYSTYKI</a>
-    </div>    
-    
-    <table>
-        <tr>
-            <th>Numer karty</th>
-            <th>Data transportu</th>
-            <th>Kod odpadu</th>
-            <th>Przekazujący</th>
-            <th>Status</th>
-            <th>Akcja</th>
-        </tr>
-        {% for kpo in kpos %}
-        <tr>
-            <td>{{ kpo.cardNumber }}</td>
-            <td>{{ kpo.realTransportTime }}</td>
-            <td>{{ kpo.wasteCode }}</td>
-            <td>{{ kpo.senderName }}</td>
-            <td>{{ kpo.cardStatus }}</td>
-            <td class="akcje">
-                <form class="confirm" method="post" action="/confirm/{{ kpo.kpoId }}"
+{% extends "base.html" %}
+{% block tytul %}Karty do potwierdzenia{% endblock %}
+{% block tresc %}
+{% if blad %}
+    <div class="komunikat komunikat-error">{{ blad }}</div>
+    <p><a class="przycisk przycisk-drugi" href="{{ url_for('index') }}">Spróbuj ponownie</a></p>
+{% elif kpos %}
+    <h1><span class="liczby">{{ kpos|length }}</span> {{ kpos|length|karty }} {{ 'czekają' if (kpos|length|karty) == 'karty' else 'czeka' }} na potwierdzenie</h1>
+    <ul class="kwity">
+    {% for kpo in kpos %}
+        <li class="kwit">
+            <p class="kwit-numer liczby">{{ kpo.cardNumber or "Karta bez numeru" }}</p>
+            <p class="kwit-od">{{ kpo.senderName or "Nieznany przekazujący" }}</p>
+            <dl class="kwit-dane">
+                <dt>Transport</dt><dd class="liczby">{{ kpo.realTransportTime|data_pl }}</dd>
+                <dt>Odpad</dt><dd>{{ kpo.wasteCode or "–" }}{% if kpo.wasteCodeDescription %}, {{ kpo.wasteCodeDescription }}{% endif %}</dd>
+                {% if kpo.vehicleRegNumber %}<dt>Pojazd</dt><dd>{{ kpo.vehicleRegNumber }}</dd>{% endif %}
+            </dl>
+            <div class="akcje">
+                <form method="post" action="{{ url_for('confirm_kpo_route', kpo_id=kpo.kpoId) }}"
                       onsubmit='return confirm({{ ("Potwierdzić przyjęcie karty " ~ kpo.cardNumber ~ " od: " ~ kpo.senderName ~ "?\n\nTo czynność prawna w BDO.")|tojson }});'>
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-confirm">Potwierdź</button>
+                    <button type="submit" class="przycisk przycisk-potwierdz">Potwierdź</button>
                 </form>
-                <details class="reject">
-                    <summary class="btn btn-reject">Odrzuć</summary>
-                    <form class="reject" method="post" action="/reject/{{ kpo.kpoId }}"
+                <details class="odrzuc">
+                    <summary class="przycisk przycisk-odrzuc"><span class="otworz">Odrzuć</span><span class="zamknij">Anuluj odrzucenie</span></summary>
+                    <form class="powod" method="post" action="{{ url_for('reject_kpo_route', kpo_id=kpo.kpoId) }}"
                           onsubmit='return confirm({{ ("Odrzucić kartę " ~ kpo.cardNumber ~ " od: " ~ kpo.senderName ~ "?\n\nTo czynność prawna w BDO.")|tojson }});'>
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <label>Powód odrzucenia (trafi do BDO):<br>
-                            <textarea name="powod" rows="3" maxlength="500" minlength="3" required
-                                      placeholder="np. niezgodna masa: ważenie u odbiorcy 24,1 Mg"></textarea>
-                        </label>
-                        <button type="submit" class="btn btn-reject">Wyślij odrzucenie</button>
+                        <label for="powod-{{ loop.index }}">Powód odrzucenia</label>
+                        <textarea id="powod-{{ loop.index }}" name="powod" maxlength="500" minlength="3" required
+                                  placeholder="np. niezgodna masa: ważenie u odbiorcy 24,1 Mg"></textarea>
+                        <p class="podpowiedz">Powód trafi do BDO i zobaczy go przekazujący.</p>
+                        <button type="submit" class="przycisk przycisk-odrzuc-pelny">Odrzuć kartę</button>
                     </form>
                 </details>
-            </td>
-        </tr>
-        {% endfor %}
-    </table>
-</body>
-</html>
-
-
+            </div>
+        </li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <h1>Nie ma kart do potwierdzenia</h1>
+    <div class="pusto">
+        <p>Gdy oczyszczalnia wystawi nową kartę w BDO, pojawi się tutaj.</p>
+        <a class="przycisk przycisk-drugi" href="{{ url_for('index') }}">Sprawdź ponownie</a>
+    </div>
+{% endif %}
+{% endblock %}

@@ -49,6 +49,46 @@ def csrf_token():
 
 app.jinja_env.globals['csrf_token'] = csrf_token
 
+DATA_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+
+
+@app.template_filter('data_pl')
+def data_pl(wartosc):
+    """'2026-10-08T07:30:00' -> '8.10.2026, 07:30'; '2026-10-08' -> '8.10.2026'."""
+    if not wartosc:
+        return '–'
+    tekst = str(wartosc).replace('Z', '')
+    for wzor, wynik in (('%Y-%m-%dT%H:%M:%S.%f', 'czas'), ('%Y-%m-%dT%H:%M:%S', 'czas'),
+                        ('%Y-%m-%dT%H:%M', 'czas'), ('%Y-%m-%d', 'data')):
+        try:
+            d = datetime.strptime(tekst[:26], wzor)
+        except ValueError:
+            continue
+        dzien = f"{d.day}.{d.month:02d}.{d.year}"
+        return f"{dzien}, {d:%H:%M}" if wynik == 'czas' else dzien
+    return str(wartosc)
+
+
+@app.template_filter('mg')
+def mg(wartosc):
+    """Masa po polsku: 1234.56 -> '1 234,56 Mg' (do 4 miejsc, bez zbednych zer)."""
+    try:
+        liczba = float(wartosc)
+    except (TypeError, ValueError):
+        return '–'
+    tekst = f"{liczba:,.4f}".rstrip('0').rstrip('.')
+    return tekst.replace(',', '\u202f').replace('.', ',') + ' Mg'
+
+
+@app.template_filter('karty')
+def karty(n):
+    """Polska odmiana: 1 karta, 2-4 karty, 5+ kart (12-14 kart)."""
+    if n == 1:
+        return 'karta'
+    if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+        return 'karty'
+    return 'kart'
+
 
 @app.route('/')
 def index():
@@ -62,7 +102,8 @@ def index():
             # Filtruj tylko karty do potwierdzenia
             kpos = [k for k in all_kpos if k.get('cardStatusCodeName') == 'CONFIRMATION_GENERATED']
         return render_template('index.html', kpos=kpos)
-    return "Błąd autoryzacji BDO. Sprawdź ClientID i ClientSecret."
+    return render_template('index.html', kpos=[],
+                           blad='Nie udało się zalogować do BDO. Sprawdź klucze CLIENT_ID, CLIENT_SECRET i EUP_ID na Renderze.')
 
 @app.route('/stats', methods=['GET', 'POST'])
 def stats_page():
@@ -70,8 +111,12 @@ def stats_page():
     token = auth.get_token()
     
     now = datetime.now()
-    date_from = request.form.get('date_from', now.strftime('%Y-%m-01'))
-    date_to = request.form.get('date_to', now.strftime('%Y-%m-%d'))
+    date_from = request.form.get('date_from', '')
+    date_to = request.form.get('date_to', '')
+    if not DATA_RE.match(date_from):
+        date_from = now.strftime('%Y-%m-01')
+    if not DATA_RE.match(date_to):
+        date_to = now.strftime('%Y-%m-%d')
 
     if token:
         result = auth.get_kpo_by_date(token, date_from, date_to)
@@ -84,14 +129,19 @@ def stats_page():
         if kpo_items:
             podsumowanie = auth.get_detailed_stats(kpo_items)
 
+        # od najwiekszej masy
+        wiersze = sorted(podsumowanie.items(), key=lambda x: x[1]['total_mass'], reverse=True)
         return render_template(
-            'stats.html', 
-            stats=podsumowanie, 
-            date_from=date_from, 
+            'stats.html',
+            stats=wiersze,
+            suma_kursow=sum(d['count'] for _, d in wiersze),
+            suma_masy=sum(d['total_mass'] for _, d in wiersze),
+            date_from=date_from,
             date_to=date_to
         )
-        
-    return "Nie udało się połączyć z BDO."
+
+    return render_template('stats.html', stats=[], date_from=date_from, date_to=date_to,
+                           blad='Nie udało się połączyć z BDO. Spróbuj ponownie za chwilę.')
 
 def _sprawdz_csrf():
     przeslany = request.form.get('csrf_token', '')

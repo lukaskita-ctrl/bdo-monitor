@@ -1,0 +1,151 @@
+/* BDO Monitor - Zielony Obieg. Jeden arkusz dla wszystkich stron. */
+:root {
+  --swierk: #1e4a3b;      /* kolor firmy: naglowek, akcenty */
+  --tlo: #eef2ef;         /* chlodne szaro-zielone tlo */
+  --papier: #ffffff;      /* karta / kwit */
+  --tusz: #17201c;        /* tekst glowny */
+  --szary: #5b6a63;       /* tekst pomocniczy */
+  --linia: #d3dbd6;       /* obramowania */
+  --potwierdz: #1f7a4d;
+  --potwierdz-ciemny: #17603c;
+  --odrzuc: #b3261e;
+  --odrzuc-ciemny: #8e1d17;
+  --ok-tlo: #e2f1e7;
+  --blad-tlo: #fbe8e6;
+  --fokus: #f2b705;
+  --promien: 10px;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--tlo);
+  color: var(--tusz);
+  font-family: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 17px;
+  line-height: 1.45;
+}
+
+.liczby { font-family: "Barlow Semi Condensed", "Barlow", system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+
+a { color: var(--swierk); }
+
+:focus-visible { outline: 3px solid var(--fokus); outline-offset: 2px; }
+
+/* --- naglowek --- */
+.pasek {
+  background: var(--swierk);
+  color: #fff;
+  padding: 14px 16px 0;
+}
+.pasek-wnetrze { max-width: 760px; margin: 0 auto; }
+.marka { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; opacity: .9; }
+.marka img { width: 28px; height: 28px; border-radius: 6px; }
+.zakladki { display: flex; gap: 4px; margin-top: 12px; }
+.zakladki a {
+  color: #fff;
+  text-decoration: none;
+  padding: 10px 16px;
+  border-radius: 8px 8px 0 0;
+  font-weight: 600;
+  opacity: .78;
+}
+.zakladki a[aria-current="page"] { background: var(--tlo); color: var(--swierk); opacity: 1; }
+
+main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
+
+h1 { font-size: 26px; line-height: 1.2; margin: 4px 0 18px; font-weight: 700; }
+h1 .liczby { font-size: 1.15em; }
+
+/* --- komunikaty --- */
+.komunikat { padding: 12px 14px; border-radius: var(--promien); margin: 0 0 16px; font-weight: 600; border-left: 5px solid; }
+.komunikat-ok { background: var(--ok-tlo); border-color: var(--potwierdz); color: #12462d; }
+.komunikat-error { background: var(--blad-tlo); border-color: var(--odrzuc); color: #6e1510; }
+
+/* --- kwit (pojedyncza karta KPO) --- */
+.kwity { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.kwit {
+  background: var(--papier);
+  border: 1px solid var(--linia);
+  border-radius: var(--promien);
+  padding: 16px;
+}
+.kwit-numer { font-size: 22px; font-weight: 600; letter-spacing: .01em; margin: 0; word-break: break-word; }
+.kwit-od { font-size: 18px; font-weight: 600; margin: 6px 0 10px; }
+.kwit-dane { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 0 0 14px; color: var(--szary); font-size: 15px; }
+.kwit-dane dt { font-weight: 400; }
+.kwit-dane dd { margin: 0; color: var(--tusz); }
+
+.akcje { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.akcje form { margin: 0; }
+
+.przycisk {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  font: inherit; font-weight: 700; font-size: 17px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.przycisk-potwierdz { background: var(--potwierdz); color: #fff; }
+.przycisk-potwierdz:hover { background: var(--potwierdz-ciemny); }
+.przycisk-odrzuc { background: var(--papier); color: var(--odrzuc); border-color: var(--odrzuc); }
+.przycisk-odrzuc:hover { background: var(--blad-tlo); }
+.przycisk-odrzuc-pelny { background: var(--odrzuc); color: #fff; }
+.przycisk-odrzuc-pelny:hover { background: var(--odrzuc-ciemny); }
+.przycisk-drugi { background: var(--papier); color: var(--swierk); border-color: var(--swierk); width: auto; }
+
+/* rozwijane odrzucenie */
+details.odrzuc > summary { list-style: none; }
+details.odrzuc > summary::-webkit-details-marker { display: none; }
+details.odrzuc[open] { grid-column: 1 / -1; }
+details.odrzuc[open] > summary { width: auto; color: var(--szary); border-color: var(--linia); }
+details.odrzuc[open] > summary .zamknij { display: inline; }
+details.odrzuc[open] > summary .otworz { display: none; }
+.zamknij { display: none; }
+.powod { margin-top: 12px; display: grid; gap: 8px; }
+.powod label { font-weight: 600; }
+.powod textarea {
+  width: 100%; min-height: 84px; padding: 10px;
+  border: 1px solid var(--linia); border-radius: 8px;
+  font: inherit; color: var(--tusz); background: #fbfcfb;
+}
+.podpowiedz { color: var(--szary); font-size: 14px; margin: 0; }
+
+/* pusto */
+.pusto { background: var(--papier); border: 1px dashed var(--linia); border-radius: var(--promien); padding: 24px 18px; }
+.pusto p { margin: 0 0 14px; }
+
+/* --- statystyki --- */
+.filtr { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; background: var(--papier); border: 1px solid var(--linia); border-radius: var(--promien); padding: 16px; margin-bottom: 18px; }
+.filtr label { display: grid; gap: 4px; font-weight: 600; font-size: 15px; }
+.filtr input { font: inherit; padding: 10px; border: 1px solid var(--linia); border-radius: 8px; min-height: 48px; width: 100%; background: #fbfcfb; color: var(--tusz); }
+.filtr .przycisk { grid-column: 1 / -1; background: var(--swierk); color: #fff; }
+
+.tabela-ramka { background: var(--papier); border: 1px solid var(--linia); border-radius: var(--promien); overflow: hidden; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--linia); vertical-align: top; }
+th { font-size: 14px; color: var(--szary); font-weight: 600; background: #f7f9f8; }
+td.num, th.num { text-align: right; white-space: nowrap; }
+tfoot td { font-weight: 700; border-bottom: 0; background: #f7f9f8; }
+.okres { color: var(--szary); margin: -8px 0 16px; }
+
+@media (max-width: 420px) {
+  h1 { font-size: 23px; }
+  .filtr { grid-template-columns: 1fr; }
+  th, td { padding: 10px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .komunikat { animation: pojaw .25s ease-out; }
+  @keyframes pojaw { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+}
+
+/* podczas odrzucania chowamy "Potwierdz", zeby nie kliknac go przez pomylke */
+.akcje:has(details.odrzuc[open]) > form { display: none; }
